@@ -9,7 +9,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const src = (f) => pathToFileURL(path.join(__dirname, '..', 'worker', 'src', f)).href;
-const PR = 'https://github.com/example-org/franks-bbq/pull/11';
+const PR = 'https://github.com/example-org/harbor-cafe/pull/11';
 const REVIEWED_HEAD = 'a'.repeat(40);
 const MERGE_REVIEW = { reviewer: { verdict: 'PASS', sha: REVIEWED_HEAD } };
 
@@ -48,7 +48,7 @@ function fakeDb() {
 
 // Every card says how it is undone: a merge ask is refused without evidence.rollback.
 const ROLLBACK = { to: 'the site before this change', how: 'revert the merge commit and redeploy', cannot: 'nothing' };
-const card = (extra = {}) => ({ title: 'T', status: 'review', kind: 'agent', board: 'franks', key: 'FRK-3', history: [], evidence: { rollback: ROLLBACK }, ...extra });
+const card = (extra = {}) => ({ title: 'T', status: 'review', kind: 'agent', board: 'harbor', key: 'HBR-3', history: [], evidence: { rollback: ROLLBACK }, ...extra });
 const read = (db, id) => JSON.parse(db.rows.get(id).data);
 
 async function seed(extra) {
@@ -149,7 +149,7 @@ test('approve: merge ask pins the reviewed head, squash merges through GitHub, c
   assert.equal(out.merged, 'abcdef1234567890'.padEnd(40, '0'));
   assert.equal(f.calls.length, 1);
   assert.equal(f.checkReads, 1);
-  assert.equal(f.calls[0].url, 'https://api.github.com/repos/example-org/franks-bbq/pulls/11/merge');
+  assert.equal(f.calls[0].url, 'https://api.github.com/repos/example-org/harbor-cafe/pulls/11/merge');
   assert.equal(f.calls[0].init.method, 'PUT');
   assert.equal(JSON.parse(f.calls[0].init.body).merge_method, 'squash');
   assert.equal(JSON.parse(f.calls[0].init.body).sha, REVIEWED_HEAD);
@@ -326,7 +326,7 @@ test('approve: HTTP 405 finishes only after GET verifies the exact merged PR and
   const out = await approveCardForTest(db, f);
   assert.equal(out.merged, mergedSha);
   assert.deepEqual(calls.map((c) => c.method), ['PUT', 'GET']);
-  assert.equal(calls[1].url, 'https://api.github.com/repos/example-org/franks-bbq/pulls/11');
+  assert.equal(calls[1].url, 'https://api.github.com/repos/example-org/harbor-cafe/pulls/11');
 });
 
 test('approve: reconciliation rejects a merged PR whose head differs from the attempted SHA', async () => {
@@ -579,7 +579,7 @@ test('approve: a go with gates posts one PASS pinned to the tested head, records
   assert.equal(posts.length, 2);
   const body = JSON.parse(posts[0].body).body;
   assert.match(body, /^Gate live-zzcloud: PASS\nHead: b{40}\n/);
-  assert.match(body, /agent2 for Owner gave the go on FRK-3/);
+  assert.match(body, /agent2 for Owner gave the go on HBR-3/);
   assert.match(posts[1].url, /\/actions\/runs\/9\/rerun$/);
   const c = read(db, 'c1');
   assert.equal(c.gates.ownerGo, true);

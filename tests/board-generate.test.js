@@ -26,7 +26,7 @@ function env(reply, extra = {}) {
   return {
     calls,
     AI: { async run(model, input) { calls.push({ model, input }); if (reply instanceof Error) throw reply; return { response: reply }; } },
-    DB: { prepare() { return { bind() { return { async first() { return { id: 'x', version: 1, updated_at: '', data: JSON.stringify({ name: 'Franks BBQ', prefix: 'FBQ' }) }; } }; } }; } },
+    DB: { prepare() { return { bind() { return { async first() { return { id: 'x', version: 1, updated_at: '', data: JSON.stringify({ name: 'Harbor Cafe', prefix: 'FBQ' }) }; } }; } }; } },
     GENERATOR_MODEL: '@cf/test/model',
     ...extra,
   };
@@ -35,7 +35,7 @@ function env(reply, extra = {}) {
 test('plain JSON reply returns a card', async () => {
   const { generateCard } = await import(url);
   const e = env(JSON.stringify(CARD));
-  const out = await generateCard(e, 'tp-plain', { board: 'franks', kind: 'agent', text: 'Add Saturday hours' });
+  const out = await generateCard(e, 'tp-plain', { board: 'harbor', kind: 'agent', text: 'Add Saturday hours' });
   assert.equal(out.card.title, 'Add Saturday hours');
   assert.equal(out.card.doneCriteria.length, 2);
   assert.equal(e.calls[0].model, '@cf/test/model');
@@ -47,7 +47,7 @@ test('plain JSON reply returns a card', async () => {
 test('fenced reply with a leading explanation still parses', async () => {
   const { generateCard } = await import(url);
   const e = env('Here is the card:\n```json\n' + JSON.stringify(CARD) + '\n```\nDone.');
-  const out = await generateCard(e, 'tp-fence', { board: 'franks', kind: 'production', text: 'Add Saturday hours' });
+  const out = await generateCard(e, 'tp-fence', { board: 'harbor', kind: 'production', text: 'Add Saturday hours' });
   assert.equal(out.card.workType, 'copyChange');
 });
 
@@ -81,7 +81,7 @@ test('generate_card on the MCP returns the draft and writes nothing', async () =
   let writes = 0;
   const prep = e.DB.prepare;
   e.DB.prepare = (sql) => { if (/INSERT|UPDATE/i.test(sql)) writes++; return prep(sql); };
-  const out = await handleRpc(e, 'agent', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'generate_card', arguments: { board: 'franks', text: 'Add Saturday hours to the footer', kind: 'agent' } } });
+  const out = await handleRpc(e, 'agent', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'generate_card', arguments: { board: 'harbor', text: 'Add Saturday hours to the footer', kind: 'agent' } } });
   const body = out.json.result;
   const payload = body.structuredContent || JSON.parse(body.content[0].text);
   assert.equal(payload.card.title, 'Add Saturday hours');

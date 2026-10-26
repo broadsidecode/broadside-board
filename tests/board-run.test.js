@@ -78,7 +78,7 @@ test('startRun fires with the card key, records the run link and sets pokedAt', 
 test('startRun skips cards that are not nudged, already picked up, on hold, or on a board with no routine', async () => {
   const { startRun } = await import(src('run.js'));
   const fetchImpl = async () => { throw new Error('should not fire'); };
-  for (const extra of [{ nudgedAt: '' }, { pokedAt: 'x' }, { hold: true }, { kind: 'human' }, { status: 'doing' }, { board: 'franks-bbq' }]) {
+  for (const extra of [{ nudgedAt: '' }, { pokedAt: 'x' }, { hold: true }, { kind: 'human' }, { status: 'doing' }, { board: 'harbor-cafe' }]) {
     assert.equal(await startRun({ ...ENV, fetchImpl }, fakeDb([card(extra)]), 'owner', 'c1'), null);
   }
 });
@@ -351,7 +351,7 @@ test('TASK-66: a paused tab fires no Start and no mention wake, and leaves both 
 
 test('TASK-66: a pause on another tab, or paused false, changes nothing', async () => {
   const { startRun } = await import(src('run.js'));
-  for (const boards of [{ franks: { name: 'Franks', paused: true } }, { 'test-diner': { name: 'Test Diner', paused: false } }]) {
+  for (const boards of [{ harbor: { name: 'Harbor', paused: true } }, { 'test-diner': { name: 'Test Diner', paused: false } }]) {
     let fired = 0;
     const fetchImpl = async () => { fired++; return { ok: true, status: 200, json: async () => ({ claude_code_session_url: 'https://claude.ai/code/session_2' }) }; };
     const db = fakeDb([card({})], boards);

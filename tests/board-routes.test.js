@@ -59,12 +59,12 @@ async function setup() {
   const store = await import(src('store.js'));
   const db = d1();
   const env = { ...ENV, DB: db };
-  for (const [id, prefix] of [['main', 'KIT'], ['test-diner', 'TDN'], ['franks', 'FRK']]) {
+  for (const [id, prefix] of [['main', 'KIT'], ['test-diner', 'TDN'], ['harbor', 'HBR']]) {
     db.raw.prepare('INSERT INTO board_boards (id, data, version, updated_at) VALUES (?, ?, 1, ?)').run(id, JSON.stringify({ name: id, prefix, order: 1 }), 'x');
     db.raw.prepare('INSERT INTO board_counters (id, next, version) VALUES (?, 10, 1)').run(prefix);
   }
   await store.writeTask(db, 'owner', { op: 'put', id: 'm1', data: { board: 'main', key: 'TASK-1', title: 'Main card', status: 'todo', kind: 'agent', history: [] } });
-  await store.writeTask(db, 'owner', { op: 'put', id: 'f1', data: { board: 'franks', key: 'FRK-1', title: 'Franks card', status: 'todo', kind: 'agent', history: [] } });
+  await store.writeTask(db, 'owner', { op: 'put', id: 'f1', data: { board: 'harbor', key: 'HBR-1', title: 'Harbor card', status: 'todo', kind: 'agent', history: [] } });
   await store.writeTask(db, 'owner', { op: 'put', id: 't1', data: { board: 'test-diner', key: 'TDN-1', title: 'Diner card', status: 'doing', kind: 'production', history: [] } });
   const call = async (claims, method, p, body) => {
     const req = new Request(`https://board.example.com/api/v1${p}`, { method, body: body ? JSON.stringify(body) : undefined, headers: { 'content-type': 'application/json' } });
@@ -97,7 +97,7 @@ test('TASK-39: a bound token sees and writes its own board only, on every route'
   assert.match(other.body.error, /bound to board test-diner/);
   assert.equal((await call(C, 'POST', '/tasks/batch', { writes: [{ op: 'patch', id: 'f1', ifVersion: ver('f1'), data: ASK }] })).status, 403);
   assert.equal((await call(C, 'PUT', '/tasks/new1', { data: { board: 'main', key: 'TASK-99', title: 'x', status: 'todo', kind: 'agent', history: [] } })).status, 403);
-  assert.equal((await call(C, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { board: 'franks' } })).status, 403);
+  assert.equal((await call(C, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { board: 'harbor' } })).status, 403);
   // Read only: on its own board the token raises an ask and nothing else.
   const note = await call(C, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { note: 'own board' } });
   assert.equal(note.status, 403);
@@ -116,7 +116,7 @@ test('TASK-39: a bound token sees and writes its own board only, on every route'
   const snap = await call(C, 'GET', '/snapshot?github=0');
   assert.match(snap.body.text, /^scope: board test-diner$/m);
   assert.match(snap.body.text, /^counters next: TDN 11$/m);
-  assert.doesNotMatch(snap.body.text, /TASK-1|FRK-1|Main card|Franks card/);
+  assert.doesNotMatch(snap.body.text, /TASK-1|HBR-1|Main card|Harbor card/);
 });
 
 test('TASK-39: an unbound customer worker and an unknown service token are refused outright', { skip: !sqlite && 'node:sqlite missing' }, async () => {
@@ -131,11 +131,11 @@ test('TASK-39: a binding in the principals table works without a redeploy; only 
   const { call } = await setup();
   const cid = `${'a'.repeat(32)}.access`;
   assert.equal((await call(as(cid), 'GET', '/tasks')).status, 403, 'unknown before binding');
-  assert.equal((await call(as('cloudtd.access'), 'PUT', `/principals/${cid}`, { principal: 'cloud-worker', board: 'franks' })).status, 403);
-  assert.equal((await call(as('jarv.access'), 'PUT', `/principals/${cid}`, { principal: 'cloud-worker', board: 'franks' })).status, 200);
+  assert.equal((await call(as('cloudtd.access'), 'PUT', `/principals/${cid}`, { principal: 'cloud-worker', board: 'harbor' })).status, 403);
+  assert.equal((await call(as('jarv.access'), 'PUT', `/principals/${cid}`, { principal: 'cloud-worker', board: 'harbor' })).status, 200);
   const r = await call(as(cid), 'GET', '/tasks');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.body.tasks.map((t) => t.data.key), ['FRK-1']);
+  assert.deepEqual(r.body.tasks.map((t) => t.data.key), ['HBR-1']);
   assert.equal((await call(OWNER, 'GET', '/principals')).body.principals.length, 1);
 });
 
@@ -234,10 +234,10 @@ test('TASK-66: pause_board is for Owner and his connectors; reads show it; a boa
   assert.ok(p.pauseSetAt);
   assert.match(p.note, /not disabled/);
   const boards = JSON.parse((await tool('lane1', 'list_boards', {})).text);
-  assert.deepEqual(boards.map((b) => [b.id, b.paused]).sort(), [['franks', false], ['main', false], ['test-diner', true]]);
+  assert.deepEqual(boards.map((b) => [b.id, b.paused]).sort(), [['harbor', false], ['main', false], ['test-diner', true]]);
   assert.equal(boards.find((b) => b.id === 'test-diner').pauseSetBy, 'owner');
   assert.equal(JSON.parse((await tool('lane1', 'get_card', { key: 'TDN-1' })).text).boardPaused, true);
-  assert.equal(JSON.parse((await tool('lane1', 'get_card', { key: 'FRK-1' })).text).boardPaused, undefined);
+  assert.equal(JSON.parse((await tool('lane1', 'get_card', { key: 'HBR-1' })).text).boardPaused, undefined);
   const log = db.raw.prepare('SELECT who, what FROM board_history_log WHERE task_id = ?').all('board:test-diner');
   assert.deepEqual(log.map((l) => [l.who, l.what]), [['owner', 'board paused by Owner: one lane test']]);
   // A board edit cannot clear the pause, and cannot set one on another tab. Only Owner edits a board now.
@@ -245,8 +245,8 @@ test('TASK-66: pause_board is for Owner and his connectors; reads show it; a boa
   assert.equal((await call(J, 'PUT', '/boards/test-diner', { ifVersion: 2, data: { name: 'Test Diner', prefix: 'TDN', order: 1, paused: false } })).status, 403, 'read only for worker');
   assert.equal((await call(OWNER, 'PUT', '/boards/test-diner', { ifVersion: 2, data: { name: 'Test Diner', prefix: 'TDN', order: 1, paused: false } })).status, 200);
   assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('test-diner').data).paused, true);
-  assert.equal((await call(OWNER, 'PUT', '/boards/franks', { ifVersion: 1, data: { name: 'franks', prefix: 'FRK', order: 1, paused: true } })).status, 200);
-  assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('franks').data).paused, undefined);
+  assert.equal((await call(OWNER, 'PUT', '/boards/harbor', { ifVersion: 1, data: { name: 'harbor', prefix: 'HBR', order: 1, paused: true } })).status, 200);
+  assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('harbor').data).paused, undefined);
   const r = JSON.parse((await tool('owner', 'pause_board', { board: 'test-diner', paused: false })).text);
   assert.deepEqual([r.paused, r.pauseSetBy], [false, 'owner']);
   assert.match(r.note, /nothing was fired/);
@@ -256,7 +256,7 @@ test('TASK-66: a paused tab fires no Start and no wake; resume fires nothing unt
   const { db, env } = await setup();
   const { handleRpc } = await import(src('mcp.js'));
   const fires = [];
-  const runEnv = { ...env, BOARD_RUNS: JSON.stringify({ franks: 'trig_f' }), RUN_TOKEN_FRANKS: 'tokf',
+  const runEnv = { ...env, BOARD_RUNS: JSON.stringify({ harbor: 'trig_f' }), RUN_TOKEN_HARBOR: 'tokf',
     fetchImpl: async (url, init) => { fires.push(JSON.parse(init.body).text); return { ok: true, status: 200, json: async () => ({ claude_code_session_url: `https://claude.ai/code/session_${fires.length}` }) }; } };
   const tool = async (who, name, args) => {
     const out = await handleRpc(runEnv, who, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } });
@@ -265,23 +265,23 @@ test('TASK-66: a paused tab fires no Start and no wake; resume fires nothing unt
     return JSON.parse(res.content[0].text);
   };
   const card = (id) => JSON.parse(db.raw.prepare('SELECT data FROM board_tasks WHERE id = ?').get(id).data);
-  await tool('owner', 'pause_board', { board: 'franks', paused: true });
-  const n = await tool('owner', 'nudge_card', { key: 'FRK-1' });
-  assert.deepEqual([n.heldPaused, n.board], [true, 'franks']);
-  await tool('owner', 'add_comment', { key: 'FRK-1', text: '@lane1 please look at this' });
+  await tool('owner', 'pause_board', { board: 'harbor', paused: true });
+  const n = await tool('owner', 'nudge_card', { key: 'HBR-1' });
+  assert.deepEqual([n.heldPaused, n.board], [true, 'harbor']);
+  await tool('owner', 'add_comment', { key: 'HBR-1', text: '@lane1 please look at this' });
   assert.deepEqual(fires, [], 'nothing fired while paused');
   let c = card('f1');
   assert.ok(c.nudgedAt);
   assert.equal(c.pokedAt, '');
   assert.equal(c.mention.to, 'lane1');
   assert.ok(!c.mention.triedAt && !c.mention.answeredAt, 'the question is open and untried');
-  const resumed = await tool('owner', 'pause_board', { board: 'franks', paused: false });
-  assert.deepEqual(resumed.queued, ['FRK-1 Start queued', 'FRK-1 @lane1 question waiting']);
+  const resumed = await tool('owner', 'pause_board', { board: 'harbor', paused: false });
+  assert.deepEqual(resumed.queued, ['HBR-1 Start queued', 'HBR-1 @lane1 question waiting']);
   assert.deepEqual(fires, [], 'resume replays nothing by itself');
-  await tool('owner', 'add_comment', { key: 'FRK-1', text: 'back on' });
-  assert.deepEqual(fires, ['mention: FRK-1'], 'the next comment wakes the queued question once');
-  await tool('owner', 'nudge_card', { key: 'FRK-1' });
-  assert.deepEqual(fires, ['mention: FRK-1', 'card: FRK-1'], 'the next Start fires once');
+  await tool('owner', 'add_comment', { key: 'HBR-1', text: 'back on' });
+  assert.deepEqual(fires, ['mention: HBR-1'], 'the next comment wakes the queued question once');
+  await tool('owner', 'nudge_card', { key: 'HBR-1' });
+  assert.deepEqual(fires, ['mention: HBR-1', 'card: HBR-1'], 'the next Start fires once');
   c = card('f1');
   assert.equal(c.evidence.start.state, 'acknowledged');
 });
@@ -290,7 +290,7 @@ test('TASK-66 review finding 1: work fired just before a pause is not stranded a
   const { db, env } = await setup();
   const { handleRpc } = await import(src('mcp.js'));
   const fires = [];
-  const runEnv = { ...env, BOARD_RUNS: JSON.stringify({ franks: 'trig_f' }), RUN_TOKEN_FRANKS: 'tokf',
+  const runEnv = { ...env, BOARD_RUNS: JSON.stringify({ harbor: 'trig_f' }), RUN_TOKEN_HARBOR: 'tokf',
     fetchImpl: async (url, init) => { fires.push(JSON.parse(init.body).text); return { ok: true, status: 200, json: async () => ({ claude_code_session_url: `https://claude.ai/code/session_${fires.length}` }) }; } };
   const tool = async (who, name, args) => {
     const out = await handleRpc(runEnv, who, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } });
@@ -298,16 +298,16 @@ test('TASK-66 review finding 1: work fired just before a pause is not stranded a
     if (res.isError) throw new Error(res.content[0].text);
     return JSON.parse(res.content[0].text);
   };
-  await tool('owner', 'nudge_card', { key: 'FRK-1' });
-  await tool('owner', 'add_comment', { key: 'FRK-1', text: '@lane1 one question' });
-  assert.deepEqual(fires, ['card: FRK-1', 'mention: FRK-1'], 'both fired before the pause');
-  const paused = await tool('owner', 'pause_board', { board: 'franks', paused: true });
-  assert.deepEqual(paused.queued, ['FRK-1 Start fired before the pause, run not yet claimed', 'FRK-1 @lane1 woken before the pause, not yet answered']);
+  await tool('owner', 'nudge_card', { key: 'HBR-1' });
+  await tool('owner', 'add_comment', { key: 'HBR-1', text: '@lane1 one question' });
+  assert.deepEqual(fires, ['card: HBR-1', 'mention: HBR-1'], 'both fired before the pause');
+  const paused = await tool('owner', 'pause_board', { board: 'harbor', paused: true });
+  assert.deepEqual(paused.queued, ['HBR-1 Start fired before the pause, run not yet claimed', 'HBR-1 @lane1 woken before the pause, not yet answered']);
   const card = JSON.parse(db.raw.prepare('SELECT data FROM board_tasks WHERE id = ?').get('f1').data);
   assert.equal(card.evidence.start.state, 'acknowledged', 'a paused Board run may still take this card');
   assert.equal(card.mention.state, 'acknowledged', 'and this question');
-  const resumed = await tool('owner', 'pause_board', { board: 'franks', paused: false });
+  const resumed = await tool('owner', 'pause_board', { board: 'harbor', paused: false });
   assert.deepEqual(resumed.queued, paused.queued);
-  assert.deepEqual(fires, ['card: FRK-1', 'mention: FRK-1'], 'nothing refired');
+  assert.deepEqual(fires, ['card: HBR-1', 'mention: HBR-1'], 'nothing refired');
 });
 

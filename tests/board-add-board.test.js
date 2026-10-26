@@ -50,11 +50,11 @@ function d1() {
 async function setup() {
   const mcp = await import(src('mcp.js'));
   const db = d1();
-  for (const [id, prefix, order] of [['main', 'KIT', 0], ['cloud-plan', 'KIT', 1], ['franks', 'FRK', 3]]) {
+  for (const [id, prefix, order] of [['main', 'KIT', 0], ['cloud-plan', 'KIT', 1], ['harbor', 'HBR', 3]]) {
     db.raw.prepare('INSERT INTO board_boards (id, data, version, updated_at) VALUES (?, ?, 1, ?)').run(id, JSON.stringify({ name: id, prefix, order }), 'x');
   }
   db.raw.prepare('INSERT INTO board_counters (id, next, version) VALUES (?, 10, 1)').run('KIT');
-  db.raw.prepare('INSERT INTO board_counters (id, next, version) VALUES (?, 4, 1)').run('FRK');
+  db.raw.prepare('INSERT INTO board_counters (id, next, version) VALUES (?, 4, 1)').run('HBR');
   db.raw.prepare('INSERT INTO board_counters (id, next, version) VALUES (?, 2, 1)').run('OLD');
   const env = { DB: db, HANDBOOK: 'x' };
   const call = async (principal, name, args) => {
@@ -132,8 +132,8 @@ test('an id or prefix already in use is refused and nothing is written', { skip:
   const { db, call, counts } = await setup();
   const before = counts();
   const cases = [
-    [{ ...ACME, id: 'franks' }, /board franks already exists/],
-    [{ ...ACME, prefix: 'FRK' }, /prefix FRK already has a counter/],
+    [{ ...ACME, id: 'harbor' }, /board harbor already exists/],
+    [{ ...ACME, prefix: 'HBR' }, /prefix HBR already has a counter/],
     [{ ...ACME, prefix: 'OLD' }, /prefix OLD already has a counter/],
   ];
   for (const [args, re] of cases) {
@@ -148,8 +148,8 @@ test('an id or prefix already in use is refused and nothing is written', { skip:
   assert.match(g.text, /prefix GHO is already used by board ghost/);
   assert.deepEqual({ ...counts(), boards: counts().boards - 1 }, before);
   // The existing tab and counters are untouched.
-  assert.equal(db.raw.prepare('SELECT next FROM board_counters WHERE id = ?').get('FRK').next, 4);
-  assert.equal(db.raw.prepare('SELECT version FROM board_boards WHERE id = ?').get('franks').version, 1);
+  assert.equal(db.raw.prepare('SELECT next FROM board_counters WHERE id = ?').get('HBR').next, 4);
+  assert.equal(db.raw.prepare('SELECT version FROM board_boards WHERE id = ?').get('harbor').version, 1);
 });
 
 test('invalid fields are refused and nothing is written', { skip: !sqlite }, async () => {
@@ -177,8 +177,8 @@ test('invalid fields are refused and nothing is written', { skip: !sqlite }, asy
 test('Agent still cannot change an existing tab or set a counter through the store', { skip: !sqlite }, async () => {
   const { db } = await setup();
   const store = await import(src('store.js'));
-  await assert.rejects(store.putBoard(db, 'agent', 'franks', { data: { name: 'Renamed', prefix: 'FRK' }, ifVersion: 1 }, false), /read only for agent/);
-  await assert.rejects(store.putCounter(db, 'agent', 'FRK', { next: 1, ifVersion: 1 }), /read only for agent/);
-  await assert.rejects(store.setBoardPaused(db, 'agent', 'franks', true), /read only for agent/);
+  await assert.rejects(store.putBoard(db, 'agent', 'harbor', { data: { name: 'Renamed', prefix: 'HBR' }, ifVersion: 1 }, false), /read only for agent/);
+  await assert.rejects(store.putCounter(db, 'agent', 'HBR', { next: 1, ifVersion: 1 }), /read only for agent/);
+  await assert.rejects(store.setBoardPaused(db, 'agent', 'harbor', true), /read only for agent/);
   await assert.rejects(store.createBoard(db, 'agent2', 'x-tab', { name: 'X', prefix: 'XTB' }), /read only for agent2/);
 });

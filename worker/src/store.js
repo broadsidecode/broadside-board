@@ -338,7 +338,7 @@ export async function putPrincipal(db, who, clientId, { principal, board, note }
   if (!/^(?:[a-f0-9]{32}\.access|tok_[a-f0-9]{64})$/.test(String(clientId))) throw new HttpError(400, 'client id must look like <32 hex>.access or tok_<64 hex>');
   if (!/^[a-z][a-z0-9-]*$/.test(String(principal || ''))) throw new HttpError(400, 'principal must be a plain name such as cloud-worker');
   // The tab may not exist yet while a new customer is set up; a binding can name it in advance.
-  if (board && !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(String(board))) throw new HttpError(400, 'board must be a board id such as franks-bbq');
+  if (board && !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(String(board))) throw new HttpError(400, 'board must be a board id such as harbor-cafe');
   const at = nowIso();
   await db.prepare('INSERT INTO board_principals (client_id, principal, board, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(client_id) DO UPDATE SET principal = excluded.principal, board = excluded.board, note = excluded.note, created_at = excluded.created_at, created_by = excluded.created_by')
     .bind(clientId, principal, board || '', String(note || '').slice(0, 300), at, who).run();
