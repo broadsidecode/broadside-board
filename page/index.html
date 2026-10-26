@@ -1,0 +1,1861 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:#121417;color:#E6E8EB}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>Board</title><meta name="board-api" content="/api/v1"></head><body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* Redesign, ground, panel, line, text, muted, one blue accent. Amber only when Owner must act.
+     Status comes from the column; cards carry no color of their own. */
+  :root {
+    --bg: #121417; --panel: #1B1E24; --line: #2A2F37; --ink: #E6E8EB; --muted: #8A919C; --soft: #B5BAC3; --chip: #23272E;
+    --accent: #4F8CFF; --amber: #E0A43A;
+    --font: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { scrollbar-width: thin; scrollbar-color: var(--line) var(--panel); }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: var(--panel); }
+  *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; border: 2px solid var(--panel); }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 13px; line-height: 1.4; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  a { color: var(--accent); }
+  button, input, select, textarea { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); padding-block: 10px 32px; margin: 0 auto; }
+
+  /* Top bar */
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap; min-height: 40px; }
+  header.top h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+  .hright { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .sync { font-size: 12px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* One button system (): 32px tall, 8px radius, 13px text. Primary is the accent fill; quiet is
+     the outlined one. Every button on the page, the drawer included, is one of the two. */
+  .btn, .pri, .quiet, .qbtn, .ib, .bell, form.add button, .genprev .acts button, dialog.confirm button, .skadd button, .drawer .dtabs button, .drawer .dsort, .drawer .dx {
+    display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap; cursor: pointer; flex: 0 0 auto; }
+  .quiet:hover, .qbtn:hover, .ib:hover, .bell:hover, form.add button.ghost:hover, .genprev .acts button.ghost:hover, dialog.confirm button:hover, .skadd button:hover, .drawer .dtabs button:hover, .drawer .dx:hover { color: var(--ink); border-color: var(--muted); }
+  .pri, form.add button:not(.ghost), .genprev .acts button:not(.ghost), dialog.confirm button.danger, .drawer .dtabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .pri:hover, form.add button:not(.ghost):hover, .genprev .acts button:not(.ghost):hover, dialog.confirm button.danger:hover { filter: brightness(1.08); color: #fff; border-color: var(--accent); }
+  .pri:disabled, .quiet:disabled, .qbtn:disabled, form.add button:disabled, dialog.confirm button:disabled { opacity: 0.6; cursor: progress; }
+  .bell { position: relative; width: 32px; padding: 0; }
+  .bell svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .bell.lit { color: var(--ink); border-color: var(--muted); }
+  .bell .badge { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; box-sizing: border-box; padding: 0 4px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; }
+  .tabrow { position: sticky; top: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 5; display: flex; align-items: center; gap: 12px; padding-block: 10px; margin-bottom: 8px; }
+  .viewtog { display: inline-flex; gap: 0; flex: none; }
+  select.who { flex: none; padding: 0 10px; color: var(--ink); background: var(--panel); }
+  select.who.on { border-color: var(--accent); color: var(--accent); }
+  .viewtog .btn { border-radius: 0; }
+  .viewtog .btn:first-child { border-radius: 8px 0 0 8px; }
+  .viewtog .btn:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+  nav.tabs { display: flex; gap: 6px; overflow-x: auto; min-width: 0; flex: 1 1 auto; scrollbar-width: none; }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button { flex: 0 0 auto; background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
+  nav.tabs button:hover { color: var(--ink); }
+  nav.tabs button[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  nav.tabs button .n { margin-left: 6px; opacity: 0.8; }
+
+  /* Generate box */
+  form.add { display: grid; gap: 8px; margin: 6px 0 14px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  form.add .lbl, .sh { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+  form.add textarea, form.add select, .inp, .sel { font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 0; }
+  form.add select, .sel { height: 32px; box-sizing: border-box; padding: 0 8px; }
+  form.add textarea { resize: vertical; min-height: 64px; width: 100%; box-sizing: border-box; line-height: 1.45; }
+  form.add .addrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .genmsg, .qhint { font-size: 12px; color: var(--muted); }
+  .search { display: inline-flex; align-items: center; gap: 6px; width: 260px; height: 32px; max-width: 100%; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--muted); box-sizing: border-box; flex: 0 1 auto; }
+  @media (prefers-reduced-motion: no-preference) { .search { transition: width 140ms ease, border-color 120ms; } }
+  .search:focus-within { width: 320px; border-color: var(--muted); }
+  .search svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .search input { flex: 1; min-width: 0; font-size: 13px; padding: 0; border: 0; background: transparent; color: var(--ink); outline: none; }
+  .search input::placeholder { color: var(--muted); }
+  .search input::-webkit-search-cancel-button { filter: invert(0.6); }
+  @media (max-width: 720px) { header.top { flex-wrap: wrap; } .hright { flex: 1 1 auto; flex-wrap: wrap; } .search, .search:focus-within { flex: 1 1 100%; width: 100%; order: 9; } .qhint { order: 10; } }
+  .genprev { margin: 0 0 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+  .genprev .dhd { padding: 20px 24px 16px; }
+  .genprev .body { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+  .genprev .acts { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px 20px; align-items: center; }
+  .genprev .acts .lbl { font-size: 12px; color: var(--muted); }
+  .readonly { font-size: 12px; color: var(--muted); }
+
+  /* Columns */
+  .lanes { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; align-items: start; }
+  .lane { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .lane h2 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+  .lane ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .empty { color: var(--muted); font-size: 12px; padding: 4px 0; }
+  details.done { margin-top: 24px; }
+  details.done summary { cursor: pointer; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+
+  /* Flow view: a horizontal canvas, panned and zoomed. Green and the grey track are the only colors added. */
+  :root { --green: #3DBE7A; }
+  .flowhint { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .flowvp { position: relative; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); max-height: calc(100vh - 220px); min-height: 420px; cursor: grab; }
+  .flowvp.panning { cursor: grabbing; user-select: none; }
+  .flowin { position: relative; transform-origin: 0 0; }
+  .fhead { position: absolute; top: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); text-align: center; padding-top: 6px; border-bottom: 1px solid var(--line); height: 21px; box-sizing: border-box; }
+  .flines { position: absolute; pointer-events: none; }
+  .flines span { position: absolute; top: 0; bottom: 0; border-left: 1px solid color-mix(in srgb, var(--line) 55%, var(--bg)); }
+  .flane { position: absolute; left: 0; }
+  .flane .lname { position: absolute; left: 24px; width: 120px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+  .flane .lname b { font-weight: 600; overflow-wrap: anywhere; } .flane .lname span { font-size: 11px; color: var(--muted); }
+  .fsvg { position: absolute; top: 0; }
+  .fcap { position: absolute; width: 120px; text-align: center; font-size: 11px; color: var(--muted); }
+  .fcard { position: absolute; transform: translateY(-50%); box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+  .fcard:hover { border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); }
+  .fcard.need, .fcard.need:hover { border-color: var(--amber); }
+  .fcard.stale { opacity: 0.55; }
+  .fcard.running:not(.need) { border-color: var(--accent); }
+  .fcard.running::before { content: ""; position: absolute; top: -1px; left: -1px; right: -1px; height: 4px; border-radius: 10px 10px 0 0; background: linear-gradient(90deg, transparent, #fff, transparent) no-repeat, color-mix(in srgb, var(--accent) 70%, transparent); background-size: 30% 100%, 100% 100%; animation: sweep 1.4s linear infinite; }
+  .fcard .hd { display: flex; align-items: center; gap: 6px; font-size: 11px; white-space: nowrap; overflow: hidden; color: var(--muted); }
+  .fcard .hd .key { font-weight: 600; color: var(--ink); }
+  .fcard .hd .prpill { font-size: 10px; padding: 1px 7px; }
+  .fcard .hd .st { margin-left: auto; }
+  .fcard .t { font-size: 13px; font-weight: 500; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
+  .fcard .xl { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fcard .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; } .fcard .bar div { height: 100%; background: var(--accent); }
+  .fempty { position: absolute; font-size: 12px; color: var(--muted); padding-top: 20px; }
+  .fbacklog { position: absolute; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .fbacklog .lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .fpill { font: inherit; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--soft); background: transparent; cursor: pointer; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fpill:hover { color: var(--ink); border-color: var(--muted); }
+  .fbacklog .more { font-size: 12px; color: var(--muted); }
+  .flegend { display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 11px; color: var(--muted); align-items: center; margin-top: 12px; }
+  .flegend span { display: inline-flex; align-items: center; gap: 6px; }
+  .flegend i { display: inline-block; flex: none; }
+  .l-main { width: 22px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--green) 60%, var(--line) 60%); }
+  .l-branch { width: 22px; height: 2px; background: var(--accent); }
+  .l-dotted { width: 22px; height: 0; border-top: 2px dashed var(--accent); opacity: 0.6; }
+  .l-merged { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+  .l-prod { width: 10px; height: 10px; border-radius: 50%; border: 3px solid var(--line); box-sizing: border-box; }
+  .l-need { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+
+  /* Tile */
+  .card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; cursor: pointer; }
+  .card:hover { border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); }
+  .card.need, .card.need:hover { border-color: var(--amber); }
+  /* Agents working (): a card a run has picked up gets an accent border and a moving strip, so a
+     live run is never missed at a glance. Needs you (amber) still wins the border. */
+  .card.running:not(.need) { border-color: var(--accent); }
+  .card.running::before, .runbar { content: ""; display: block; height: 4px; border-radius: 2px; background: linear-gradient(90deg, transparent, #fff, transparent) no-repeat, color-mix(in srgb, var(--accent) 70%, transparent); background-size: 30% 100%, 100% 100%; animation: sweep 1.4s linear infinite; }
+  .card.running::before { position: absolute; top: -1px; left: -1px; right: -1px; border-radius: 12px 12px 0 0; }
+  .runbar { margin-top: 10px; }
+  /* The project link (): which Claude project works the card, on the tile, the open card and the Flow lane. */
+  .proj { flex: none; font-size: 11px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+  .proj:hover, .proj:focus-visible { text-decoration: underline; }
+  .card .pj { margin-top: -4px; line-height: 1.2; }
+  .flane .lname .proj { font-size: 11px; }
+  .fpill.running { position: relative; border-color: var(--accent); color: var(--ink); }
+  .fpill.running::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent, #fff, transparent) no-repeat, color-mix(in srgb, var(--accent) 70%, transparent); background-size: 30% 100%, 100% 100%; animation: sweep 1.4s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .fpill.running::after { animation: none; background: var(--accent); } }
+  /* The result (): what the work produced sits at the top of the open card, with a picture when it
+     is an image, so it is never hunted for in evidence or history. */
+  .result { border: 1px solid var(--accent); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .result .rh { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+  .result .rh b { color: var(--accent); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .result .rl { font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+  .result img { display: block; max-width: 100%; max-height: 360px; border-radius: 8px; border: 1px solid var(--line); object-fit: contain; background: var(--bg); }
+  .card .thumb { display: block; width: 100%; max-height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+  .run-lbl { color: var(--accent); font-weight: 600; }
+  @keyframes sweep { from { background-position: -50% 0, 0 0; } to { background-position: 150% 0, 0 0; } }
+  @media (prefers-reduced-motion: reduce) { .card.running::before, .runbar { animation: none; background: var(--accent); } }
+  .card .hd .run-lbl { margin-left: auto; }
+  .card[data-s="blocked"] { opacity: 0.85; }
+  .card .hd { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+  .card .hd .key { font-weight: 600; color: var(--ink); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); display: inline-block; flex: none; }
+  .prpill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-weight: 600; font-size: 11px; text-decoration: none; letter-spacing: 0.02em; white-space: nowrap; flex: none; }
+  .prpill:hover { color: #7FAAFF; border-color: #7FAAFF; }
+  .card .hd .age { margin-left: auto; overflow: hidden; text-overflow: ellipsis; }
+  .need-lbl { color: var(--amber); font-weight: 600; }
+  .card .hd .need-lbl { margin-left: auto; }
+  .card .t { font-size: 15px; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+  .card .m { font-size: 13px; line-height: 1.45; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .bar { height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .card .bar div { height: 100%; background: var(--accent); }
+  .bar.live { position: relative; } .bar.live::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 80%, #fff), transparent) no-repeat; background-size: 30% 100%; animation: sweep 1.4s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .bar.live::after, .fcard.running::before { animation: none; } }
+  .evl { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+  .evl span, .evl a { padding: 3px 8px; border-radius: 6px; background: var(--chip); color: var(--muted); text-decoration: none; white-space: nowrap; }
+  .evl a { color: var(--accent); }
+  .card .rec { font-size: 13px; line-height: 1.45; color: var(--soft); border-left: 2px solid var(--line); padding-left: 10px; overflow-wrap: anywhere; }
+  .card .wait { font-size: 12px; color: var(--muted); }
+  .pair { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; justify-content: flex-start; }
+  .card .ft { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); min-width: 0; }
+  .card .ft .own { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .av { width: 22px; height: 22px; border-radius: 50%; background: var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--ink); flex: none; text-transform: uppercase; }
+  .more { margin-left: auto; background: none; border: 0; color: var(--muted); font-size: 18px; line-height: 1; padding: 4px 8px; cursor: pointer; border-radius: 8px; flex: none; }
+  .more:hover { color: var(--ink); background: var(--chip); }
+  .ib { font-size: 18px; padding: 0 12px; }
+  .ib.x { font-size: 15px; }
+
+  /* Three-dot menu */
+  .menu { position: fixed; z-index: 80; min-width: 190px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); display: flex; flex-direction: column; }
+  .menu button { display: block; width: 100%; text-align: left; font-size: 13px; color: var(--ink); background: none; border: 0; border-radius: 6px; padding: 8px 10px; cursor: pointer; }
+  .menu button:hover, .menu button:focus-visible { background: var(--chip); outline: none; }
+  .menu button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .menu .menu-help { color: var(--muted); font-size: 11px; line-height: 1.4; padding: 0 10px 8px; max-width: 240px; }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+
+  /* Confirm dialogs */
+  dialog.confirm { border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(380px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); font: inherit; }
+  dialog::backdrop { background: rgba(18,20,23,0.7); }
+  dialog.confirm p { margin: 0 0 14px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+  dialog.confirm input.note { display: block; width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px 10px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  dialog.confirm .err { color: var(--amber); font-size: 12px; margin: 0 0 12px; overflow-wrap: anywhere; }
+  dialog.confirm .row { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* Open card */
+  .detail { position: fixed; left: 0; top: 0; z-index: 70; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; width: min(980px, calc(100vw - 32px)); max-height: min(85vh, 900px); background: var(--panel); color: var(--ink); overflow: hidden; box-shadow: 0 18px 60px rgba(0,0,0,0.55); outline: none; box-sizing: border-box; }
+  .detail:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .detail > .dhd { cursor: grab; touch-action: none; user-select: none; }
+  .detail > .dhd:active { cursor: grabbing; }
+  .detail.newcard { width: min(720px, calc(100vw - 32px)); }
+  .detail.newcard .dhd h3 { font-size: 18px; }
+  .detail.newcard form.add { margin: 0; border: 0; padding: 0; background: transparent; }
+  .detail.newcard .genprev { margin: 20px 0 0; }
+  .dhd { display: flex; align-items: flex-start; gap: 12px; padding: 24px 28px 20px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+  .dhd .hl { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .dhd .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--muted); }
+  .dhd .meta .key { font-weight: 600; color: var(--ink); font-size: 13px; }
+  .dhd .meta .prpill { font-size: 12px; }
+  .dhd h3 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .dwrap { flex: 1 1 auto; display: flex; min-height: 0; }
+  .dmain { flex: 1; min-width: 0; padding: 24px 28px; display: flex; flex-direction: column; gap: 24px; overflow: auto; }
+  .drail { width: 260px; flex: none; border-left: 1px solid var(--line); padding: 24px 22px; display: flex; flex-direction: column; gap: 18px; font-size: 13px; overflow: auto; box-sizing: border-box; }
+  @media (max-width: 720px) { .dwrap { flex-direction: column; overflow: auto; } .dmain, .drail { overflow: visible; } .drail { width: auto; border-left: 0; border-top: 1px solid var(--line); } .dhd { padding: 18px 20px 16px; } .dmain { padding: 20px; } }
+  .sec { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .sec .sh { display: flex; align-items: center; gap: 10px; }
+  .sec .sh .sub { font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .askbox { border: 1px solid var(--amber); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .askbox .sh { color: var(--amber); }
+  .askbox .txt { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+  .askbox .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .askbox .row .inp { flex: 1 1 200px; font-size: 13px; height: 32px; box-sizing: border-box; padding: 0 12px; }
+  .askbox .by { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .askbox .wait { font-size: 13px; color: var(--muted); }
+  .dnote { font-size: 14px; line-height: 1.55; margin: 0; overflow-wrap: anywhere; }
+  .dnote p { margin: 0 0 6px; } .dnote ul, .dnote ol { margin: 0 0 6px; padding-left: 20px; }
+  .brief .obj { font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+  .brief .oos { font-size: 13px; line-height: 1.55; color: var(--muted); overflow-wrap: anywhere; }
+  .brief .oos span { color: var(--soft); }
+  details.morebrief summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  details.morebrief summary:hover { color: var(--ink); }
+  .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 10px 0 0; font-size: 13px; }
+  .kv dt { color: var(--muted); font-size: 12px; padding-top: 1px; } .kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .kv ul, .kv ol { margin: 0; padding-left: 16px; }
+  .kv .spec { white-space: pre-wrap; }
+  .mut { color: var(--muted); }
+  .dw { display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.4; }
+  .dw div { display: flex; gap: 10px; align-items: flex-start; }
+  .dw .sq { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); flex: none; margin-top: 2px; box-sizing: border-box; }
+  .dw .sq.off { background: transparent; border: 1px solid var(--accent); }
+  .dw .off-t { color: var(--soft); }
+  .dw .dwh { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+  .dw .dwh:first-child { margin-top: 0; }
+  .dw .dws { padding-left: 12px; }
+  .sec .evl { font-size: 13px; }
+  .sec .evl span, .sec .evl a { padding: 6px 12px; border-radius: 8px; color: var(--soft); }
+  .sec .evl a { color: var(--accent); }
+  .rb { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .rb .rows { display: flex; flex-direction: column; font-size: 14px; line-height: 1.5; }
+  .rb .rows div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .rb .rows div span:first-child { color: var(--muted); }
+  .rb .none, .cmts .none { font-size: 13px; color: var(--muted); }
+  .act { display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.45; }
+  .act .row { display: flex; gap: 12px; align-items: flex-start; }
+  .act .row .nm { color: var(--ink); } .act .row .wt { color: var(--muted); overflow-wrap: anywhere; }
+  .act .morebtn { align-self: flex-start; background: none; border: 0; padding: 0; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .act .morebtn:hover { color: var(--ink); }
+  .cmts { display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.45; }
+  .cmts .row { display: flex; gap: 12px; align-items: flex-start; }
+  .cmts .row .wt { color: var(--muted); font-size: 12px; }
+  .cmts .row .tx { color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+  .cmts .at { font-weight: 600; color: var(--accent); }
+  .cmts .mstate { font-size: 12px; color: var(--muted); }
+  .cmtadd { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; position: relative; }
+  .mpick { align-self: stretch; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); overflow: hidden; }
+  .mpick[hidden] { display: none; }
+  .mpick button { all: unset; cursor: pointer; padding: 7px 10px; font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
+  .mpick button .hint { color: var(--muted); font-size: 12px; }
+  .mpick button.on, .mpick button:hover { background: var(--line); }
+  .cmtadd textarea { width: 100%; box-sizing: border-box; min-height: 56px; resize: vertical; font-size: 13px; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  .rk { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .rv { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+  .rv .sel { max-width: 100%; }
+  .rv.soft { color: var(--soft); line-height: 1.5; }
+  .rv.avs { gap: 4px; flex-wrap: wrap; }
+  .rail-foot { margin-top: auto; color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 4px; padding-top: 8px; }
+  .sks { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .sk { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; background: var(--chip); color: var(--soft); border-radius: 6px; padding: 2px 8px; }
+  .sk .ktag { font-size: 8.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .sk .skx { font-size: 13px; line-height: 1; background: transparent; border: 0; color: var(--muted); cursor: pointer; padding: 0 2px; border-radius: 3px; }
+  .sk .skx:hover { color: var(--ink); }
+  .skadd { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  .skadd input { font-size: 12px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 0; flex: 1 1 120px; }
+  .skadd input { height: 32px; box-sizing: border-box; padding: 0 10px; }
+
+  /* Bell drawer (Needs you + Activity) */
+  .dback { position: fixed; inset: 0; z-index: 40; background: rgba(18,20,23,0.7); }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 41; width: min(420px, 100vw); box-sizing: border-box; display: flex; flex-direction: column; background: var(--panel); color: var(--ink); border-left: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); transform: translateX(100%); visibility: hidden; }
+  .drawer.open { transform: none; visibility: visible; }
+  @media (prefers-reduced-motion: no-preference) { .drawer { transition: transform 180ms ease, visibility 0s linear 180ms; } .drawer.open { transition: transform 180ms ease; } }
+  .drawer .dh { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .drawer .dtabs { display: flex; gap: 6px; }
+  .drawer .dtabs .badge { position: static; display: inline-block; margin-left: 5px; min-width: 14px; height: 14px; line-height: 14px; font-size: 9.5px; border-radius: 7px; padding: 0 4px; background: var(--line); color: var(--ink); vertical-align: 1px; }
+  .drawer .dtabs button[aria-selected="true"] .badge { background: rgba(255,255,255,0.25); color: #fff; }
+  .drawer .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .drawer .dsort { margin-left: auto; padding: 0 8px; background: var(--bg); color: var(--ink); max-width: 40%; display: block; }
+  .drawer .dh h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .drawer .dx { font-size: 20px; width: 32px; padding: 0; }
+  .drawer .dl { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+  .drawer h3 { margin: 14px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+  .drawer h3.quiet { color: var(--muted); }
+  .drow, .arow { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .drow .dtxt { display: block; cursor: pointer; border-radius: 6px; }
+  .drow .dtop { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 12px; color: var(--muted); }
+  .drow .key { color: var(--ink); font-weight: 600; }
+  .drow .dt { font-weight: 500; font-size: 14px; overflow-wrap: anywhere; margin-top: 2px; }
+  .drow .dwhy { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; margin-top: 2px; }
+  .drow .pair { margin-top: 8px; }
+  .dfrom { font-size: 12px; color: var(--muted); }
+  .drawer .dnone, .drawer .asince { color: var(--muted); font-size: 12px; padding: 10px 0 2px; }
+  .arow { cursor: pointer; border-radius: 4px; }
+  .arow.new { box-shadow: inset 2px 0 0 var(--accent); padding-left: 10px; }
+  .arow .atop { display: flex; gap: 8px; align-items: baseline; font-size: 11.5px; color: var(--muted); }
+  .arow .atop .awho { font-weight: 600; color: var(--ink); }
+  .arow .atop .key { color: var(--ink); }
+  .arow .awhat { font-size: 13px; overflow-wrap: anywhere; margin-top: 2px; }
+  @media (prefers-reduced-motion: no-preference) { nav.tabs button, .card, .menu button { transition: background 120ms, color 120ms, border-color 120ms; } }
+  /* One shared tooltip: the element's title (or data-tip) in plain words, above the element, below when there is no room. */
+  .tip { position: fixed; z-index: 1000; max-width: 300px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 12px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,0.45); pointer-events: none; overflow-wrap: anywhere; }
+</style>
+<div class="wrap">
+  <header class="top">
+    <h1>Board</h1>
+    <div class="hright"><div class="sync" id="sync">connecting</div><button type="button" class="qbtn" id="newBtn" hidden title="New card: opens a panel where you describe a task in plain words and the board writes the card.">New card</button><label class="search" aria-label="Search cards"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="q" placeholder="Search cards" autocomplete="off" title="Type to filter the cards on this tab by key, title, note or name. Type a key such as CST-6 and press Enter to open that card."></label><span class="qhint" id="qHint" hidden></span><button type="button" class="qbtn" id="syncBtn" title="Sync: asks GitHub for every open pull request and updates the cards to match.">Sync</button><button type="button" class="bell" id="bell" title="Needs you: opens the list of cards waiting on you, and the activity log." aria-label="Needs you, none" aria-haspopup="dialog" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/></svg><span class="badge" id="bellN" hidden></span></button></div>
+  </header>
+  <div class="tabrow"><div class="viewtog" id="viewTog" role="group" aria-label="View"><button type="button" class="btn" data-view="board" title="Board: the cards in columns by status.">Board</button><button type="button" class="btn" data-view="flow" title="Flow: the same cards as branches off each board's main line, stage by stage.">Flow</button></div><select id="who" class="btn who" aria-label="Whose cards" title="Whose cards: show everyone, or only the cards one person owns. Owner also shows every card waiting on you."><option value="">Everyone</option></select><nav class="tabs" id="tabs" role="tablist" aria-label="Boards"></nav></div>
+  <p class="readonly" id="ro" hidden>Read only for you. Agents and Owner update this board.</p>
+  <div class="lanes" id="lanes"></div>
+  <section class="flow" id="flow" hidden aria-label="Flow view">
+    <div class="flowhint">Drag to pan, wheel to zoom, double click to reset, click a card to open it</div>
+    <div class="flowvp" id="flowVp"><div id="flowSize"><div class="flowin" id="flowIn"></div></div></div>
+    <div class="flegend">
+      <span><i class="l-main"></i>main is the progress bar: green as far as the work has reached, grey to the end</span>
+      <span><i class="l-branch"></i>a card's branch: leaves main just before its card, rejoins main at the merge</span>
+      <span><i class="l-dotted"></i>dotted branch: paused, or no card update in 3 days</span>
+      <span><i class="l-merged"></i>merged</span>
+      <span><i class="l-prod"></i>end of the line is production; the dot fills green when deployed</span>
+      <span><i class="l-need"></i>needs you</span>
+    </div>
+  </section>
+  <details class="done" id="doneBox" hidden><summary title="Show or hide the cards finished on this tab, newest first.">Done <span class="n" id="doneCount"></span></summary><ul id="doneList" class="lanes"></ul></details>
+</div>
+<div id="genHolder" hidden>
+  <form class="add" id="add" hidden>
+    <label class="lbl" for="genText">Describe the task in plain words</label>
+    <textarea id="genText" rows="3" maxlength="4000" autocomplete="off" placeholder="Example: Add the new Saturday hours to the Franks BBQ footer and contact page." title="Describe the task in plain words. Generate turns it into a full card; Add as is saves just this line."></textarea>
+    <div class="addrow">
+      <select id="genKind" aria-label="Kind of card" title="Human: a card for you. Agent: the agents pick it up once you press Start now. Production: nothing runs without your go."><option value="human">Human</option><option value="agent">Agent</option><option value="production">Production</option></select>
+      <button type="button" id="genBtn" disabled title="Generate: the board writes the brief, done criteria and test steps from your words. Nothing is saved until you press Save card.">Generate</button>
+      <button type="button" id="genStop" class="ghost" hidden title="Stop generating; nothing is saved.">Stop</button>
+      <button type="submit" id="addPlain" class="ghost" title="Add as is: saves a plain card with this text as the title and no generated brief.">Add as is</button>
+      <span class="genmsg" id="genMsg" role="status"></span>
+    </div>
+  </form>
+  <section class="genprev" id="genPreview" hidden aria-label="Generated card preview"></section>
+</div>
+<div class="dback" id="dback" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="drawerTitle">
+  <div class="dh"><div class="dtabs" role="tablist"><button type="button" role="tab" id="dtabNeed" aria-selected="true" title="Needs you: every card across every tab that is waiting on you.">Needs you</button><button type="button" role="tab" id="dtabAct" aria-selected="false" title="Activity: every change on the board, newest first, with who made it.">Activity<span class="badge" id="actN" hidden></span></button></div><h2 id="drawerTitle" class="sr">Needs you</h2><select id="drawerSort" class="dsort" aria-label="Sort the list" title="Change the order of the list. Remembered on this browser."><option value="urgent">Urgent first</option><option value="newest">Newest first</option><option value="oldest">Waiting longest</option><option value="board">By tab</option><option value="flat">One list, urgent first</option></select><button type="button" class="dx" id="drawerX" aria-label="Close" title="Close this list.">&times;</button></div>
+  <div class="dl" id="drawerList"></div>
+</aside>
+<div id="panels"></div>
+<dialog class="confirm" id="loginDlg" aria-labelledby="loginMsg">
+  <p id="loginMsg">Sign in with the owner password.</p>
+  <input class="note" id="loginPw" type="password" autocomplete="current-password" placeholder="Owner password" title="The owner password you chose when you set up the board.">
+  <p class="err" id="loginErr" role="alert" hidden></p>
+  <div class="row"><button type="button" class="danger" id="loginGo" title="Sign in: opens the board for you.">Sign in</button></div>
+</dialog>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+<dialog class="confirm" id="confirmDel" aria-labelledby="confirmDelMsg">
+  <p id="confirmDelMsg"></p>
+  <div class="row"><button type="button" id="delNo" title="Keep the card; nothing changes.">Cancel</button><button type="button" class="danger" id="delYes" title="Delete: removes the card for good.">Delete card</button></div>
+</dialog>
+<dialog class="confirm" id="confirmAsk" aria-labelledby="confirmAskMsg">
+  <p id="confirmAskMsg"></p>
+  <input class="note" id="askNote" type="text" maxlength="500" placeholder="Note (optional)" autocomplete="off" hidden title="A short note that goes into the card's history with your decision.">
+  <p class="err" id="askErr" role="alert" hidden></p>
+  <div class="row"><button type="button" id="askNo" title="Close without deciding; the card stays as it is.">Cancel</button><button type="button" class="danger" id="askYes" title="Confirm: does what the question says and records it on the card.">OK</button></div>
+</dialog>
+<script>
+(function () {
+  const STATUS = [
+    ['todo', 'To do'], ['design', 'Design'], ['doing', 'In progress'], ['review', 'Review'], ['approval', 'Approval needed'], ['waiting', 'Waiting on someone'], ['blocked', 'Blocked'],
+  ];
+  const LABEL = { design: 'design', doing: 'in progress', review: 'review', approval: 'approval needed', waiting: 'waiting', blocked: 'blocked', todo: 'to do', done: 'done' };
+  let boards = [{ id: 'main', name: 'Main', order: 0 }];
+  let tasks = [];
+  let current = 'main';
+  // The All tab shows every board in one place so one search covers everything ().
+  const ALL = 'all';
+  const onTab = (t) => current === ALL || t.board === current;
+  const targetBoard = () => (current === ALL ? 'main' : current);
+  let boardsLoaded = false;
+  let query = '';
+  function matches(t) {
+    if (!query) return true;
+    const hay = [t.key, t.title, t.note, t.owner, t.lane, t.status, t.kind, t.createdBy, (t.touchedBy || []).join(' '), t.brief && t.brief.objective, (t.history || []).map((h) => h.what).join(' ')].join(' ').toLowerCase();
+    return query.split(/\s+/).every((w) => hay.includes(w));
+  }
+  let canWrite = null;
+  // Filled from /api/v1/config before the first render: which modules are on, and the default lane.
+  const MOD = {};
+  let DEFAULT_LANE = 'main';
+  const BOARD_API = ((document.querySelector('meta[name="board-api"]') || {}).content || '/api/v1').replace(/\/+$/, '');
+  const db = true; // the API is always the store; kept so the existing checks read the same
+  let me = { principal: '', canWrite: null, isAdmin: null };
+  let healthDown = false;
+  let epoch = 0;
+  let lastSig = '';
+  const POLL_MS = 15000;
+  const $ = (id) => document.getElementById(id);
+
+  function hashToken(s) { return String(s || '').replace(/[^A-Za-z0-9._~-]/g, ''); }
+  // The active tab lives in the URL hash and in localStorage, kept in step. A hash on load wins.
+  function rememberTab() {
+    try { localStorage.setItem('board.tab', current); } catch {}
+    try { history.replaceState(null, '', '#' + current); } catch { try { location.hash = current; } catch {} }
+  }
+  try { current = hashToken(location.hash.slice(1)) || localStorage.getItem('board.tab') || 'main'; } catch { current = hashToken(location.hash.slice(1)) || 'main'; }
+
+  function fmt(iso) {
+    if (!iso) return '';
+    const d = new Date(iso); if (isNaN(d)) return '';
+    const diff = (Date.now() - d.getTime()) / 60000;
+    if (diff < 60) return Math.max(1, Math.round(diff)) + ' min ago';
+    if (diff < 1440) return Math.round(diff / 60) + ' h ago';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  // Plain text note to simple HTML: blank line = paragraph; lines starting with "- " or "* " = bullets;
+  // "1. " or "(1) " = numbered; inline " (1) ... (2) ..." in one paragraph is split into a numbered list.
+  function noteHtml(note) {
+    let text = String(note || '').replace(/\r/g, '');
+    if (!/\n/.test(text) && /\(1\)/.test(text)) text = text.replace(/\s*\((\d+)\)\s*/g, (m, n) => '\n' + n + '. ');
+    const out = []; let list = null; let kind = '';
+    const flush = () => { if (list) { out.push('<' + kind + '>' + list.map((x) => '<li>' + esc(x) + '</li>').join('') + '</' + kind + '>'); list = null; } };
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line) { flush(); continue; }
+      let m;
+      if ((m = line.match(/^[-*\u2022]\s+(.*)$/))) { if (kind !== 'ul') flush(); kind = 'ul'; (list = list || []).push(m[1]); continue; }
+      if ((m = line.match(/^(?:\d+[.)]|\(\d+\))\s+(.*)$/))) { if (kind !== 'ol') flush(); kind = 'ol'; (list = list || []).push(m[1]); continue; }
+      flush(); out.push('<p>' + esc(line) + '</p>');
+    }
+    flush();
+    return out.join('');
+  }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
+  function byUpdated(a, b) { return String(b.updated || '').localeCompare(String(a.updated || '')); }
+
+  function renderTabs() {
+    const nav = $('tabs'); nav.textContent = '';
+    const ordered = [...boards].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+    // Only fall back to Main once the real board list is in; before that only the Main placeholder exists.
+    if (boardsLoaded && ordered.length && current !== ALL && !ordered.some((b) => b.id === current)) current = 'main';
+    for (const b of [{ id: ALL, name: 'All' }, ...ordered]) {
+      const open = tasks.filter((t) => (b.id === ALL || t.board === b.id) && t.status !== 'done').length;
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.role = 'tab'; btn.setAttribute('aria-selected', String(b.id === current));
+      btn.innerHTML = esc(b.name) + (open ? '<span class="n">' + open + '</span>' : '');
+      btn.title = b.id === ALL ? 'Show every open card from every tab in one place.' : 'Show only the ' + b.name + ' cards' + (open ? ', ' + open + ' open now.' : '.');
+      btn.addEventListener('click', () => { current = b.id; rememberTab(); render(); });
+      nav.appendChild(btn);
+    }
+  }
+
+  window.addEventListener('hashchange', () => { const h = hashToken(location.hash.slice(1)); if (h && h !== current) { current = h; try { localStorage.setItem('board.tab', current); } catch {} render(); } });
+  const FROM_NAMES = { owner: 'Owner', agent: 'Agent', reviewer: 'Reviewer', 'github-actions': 'GitHub' };
+  function fromCaption(t) { const a = t && t.ask; if (!a || !a.by) return ''; return 'From ' + (FROM_NAMES[a.by] || a.by); }
+  const LANES = {};
+  const ARROW = String.fromCharCode(8594); // right arrow for history lines, kept out of the source as a literal
+  const COLNAME = Object.fromEntries([...STATUS, ['done', 'Done']]);
+  const ROLES = [['coordinator', 'Coordinator', 'coord'], ['builder', 'Builder', 'build'], ['reviewer', 'Reviewer', 'review'], ['deployer', 'Deployer', 'deploy']];
+  const RSTATES = ['waiting', 'working', 'done', 'pass', 'fail', 'skipped'];
+  const SKILL_MAP = {};
+  const SKILL_NAMES = [];
+  function requiredSkillsFor(workType, extra) {
+    const base = SKILL_MAP[workType] || [];
+    return [...new Set([...base, ...arr(extra).map(String).filter(Boolean)])];
+  }
+  // Skills the description names, by exact name or by its words ("premium web design").
+  function namedSkills(text) {
+    const low = ' ' + String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ') + ' ';
+    return SKILL_NAMES.filter((n) => low.includes(' ' + n.replace(/-/g, ' ') + ' '));
+  }
+  function cleanSkill(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9:._-]/g, '').slice(0, 60); }
+  const LEGACY_BRIEF = [['role', 'Role'], ['checks', 'Checks'], ['gates', 'Gates'], ['evidence', 'Evidence']];
+  function boardName(id) { return (boards.find((b) => b.id === id) || {}).name || id; }
+  // The Claude project that works a card (): a board's projects map a lane, or "*" for every lane, to
+  // {name, url}. Main names only its worker lane, so a card nobody's project works shows none.
+  function boardProjects(id) { const p = (boards.find((b) => b.id === id) || {}).projects; return p && typeof p === 'object' ? p : {}; }
+  function projectOf(t) { if (!MOD.start) return null; const p = boardProjects(t && t.board); const x = p[t && t.lane] || p['*']; return x && x.name && safeUrl(x.url) ? x : null; }
+  function projectLink(p) { return '<a class="proj" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener" title="Open the ' + esc(p.name) + ' project in Claude. Every run on this card is a thread there.">' + esc(p.name) + ' project</a>'; }
+  function arr(v) { return Array.isArray(v) ? v : (v == null || v === '' ? [] : [v]); }
+  function has(v) { return v != null && v !== ''; }
+  function isCust(t) { return String(t.waitingOn || '').toLowerCase() === 'customer'; }
+  function fmtAt(iso) {
+    if (!iso) return '';
+    const d = new Date(iso); if (isNaN(d)) return '';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+  function safeUrl(u) { const s = String(u || '').trim(); return /^https?:\/\//i.test(s) ? s : ''; }
+  function linkHtml(u, label) {
+    const s = safeUrl(u);
+    return s ? '<a href="' + esc(s) + '" target="_blank" rel="noopener">' + esc(label || s.replace(/^https?:\/\//i, '').slice(0, 70)) + '</a>' : esc(label || u);
+  }
+  function crit(t) { return arr(t.doneCriteria).map((c) => (c && typeof c === 'object' ? c : { text: String(c) })); }
+  // A {heading: true} item titles the steps after it; only the steps count.
+  function steps(t) { return crit(t).filter((c) => !c.heading); }
+  function roleOf(t, k) {
+    const r = (t.roles || {})[k]; if (!r) return null;
+    const o = typeof r === 'string' ? { name: r } : r;
+    return { ...o, state: RSTATES.includes(o.state) ? o.state : 'waiting' };
+  }
+  function ev(t) {
+    const e = { ...(t.evidence || {}) }; const r = t.results || {};
+    if (!e.pr && r.pr) e.pr = r.pr;
+    if (!e.preview && r.preview) e.preview = r.preview;
+    if (!e.deployId && r.deploy) e.deployId = r.deploy;
+    return e;
+  }
+  function reviewerOf(t) {
+    const g = (t.gates && t.gates.reviewer) || {};
+    const v = String(g.verdict || '').toLowerCase();
+    if (v === 'pass' || v === 'fail') return { ...g, verdict: v };
+    const r = (t.results || {}).reviewer;
+    if (r) return { verdict: /^pass/i.test(r) ? 'pass' : /^fail/i.test(r) ? 'fail' : '', notes: String(r), at: '' };
+    return { ...g, verdict: '' };
+  }
+  // ---- Asks: one approval path. A card that needs Owner (ask, needsOwner or the approval column) gets the
+  // amber border and its one action pair; the button calls POST /tasks/:id/approve, which does the thing.
+  // an ask addressed to Agent (ask.to === 'agent') shows "Waiting on Agent" and no
+  // buttons; her answer comes back as a recommendation (ask.by === 'agent') with Approve and Decline.
+  // a merge ask goes to Agent too; it stays off his red strip but keeps a Merge button for him.
+  function isOwner() { return me.principal === 'owner'; }
+  function toAgent(t) { return !!(t && t.ask && String(t.ask.to || '').toLowerCase() === 'agent'); }
+  // Amber, the bell and the action pair only when Owner himself must act; a card waiting on Agent is not his.
+  function needsOwner(t) { return !!t && t.status !== 'done' && !toAgent(t) && !!(t.needsOwner || askInfo(t)); }
+  function askInfo(t) {
+    if (!t || t.status === 'done') return null;
+    const a = t.ask && typeof t.ask === 'object' && t.ask.kind ? t.ask : null;
+    if (a) {
+      const n = prNumber(t);
+      const label = a.kind === 'answer' || a.kind === 'decide' ? 'Approve' : a.kind === 'design' ? 'Approve design' : a.kind === 'merge' ? 'Merge PR' + (n ? ' #' + n : '') : a.kind === 'go' ? 'Go for production' : String(a.text || 'Approve');
+      return { kind: a.kind, text: String(a.text || label), label, route: true, by: a.by || '', at: a.at || '', to: a.to || '' };
+    }
+    if ((t.kind || 'human') === 'production' && t.needsOwner && !(t.gates && t.gates.ownerGo)) return { kind: 'go', text: 'Go for production', label: 'Go for production', route: true, as: 'go' };
+    if (t.status === 'approval') return { kind: 'approval', text: 'Approve', label: 'Approve', route: true };
+    if (t.needsOwner) return { kind: 'handled', text: 'Handled', label: 'Handled', route: false };
+    return null;
+  }
+  function prNumber(t) { const m = String((t.ask && t.ask.pr) || ev(t).pr || '').match(/\/pull\/(\d+)/); return m ? m[1] : ''; }
+  // One confirm dialog for the ask buttons. run(note) does the work and returns an error message, or '' on
+  // success; the dialog stays open on an error.
+  function askConfirm(msg, okLabel, withNote, run) {
+    return new Promise((resolve) => {
+      const dlg = $('confirmAsk'); const yes = $('askYes'); const no = $('askNo'); const inp = $('askNote'); const err = $('askErr');
+      $('confirmAskMsg').textContent = msg; yes.textContent = okLabel; yes.disabled = false;
+      inp.hidden = !withNote; inp.value = ''; err.hidden = true; err.textContent = '';
+      const done = (v) => { yes.onclick = null; no.onclick = null; dlg.onclose = null; if (dlg.open) dlg.close(); resolve(v); };
+      yes.onclick = async () => {
+        yes.disabled = true; err.hidden = true;
+        const m = await run(inp.value.trim());
+        if (m) { err.textContent = m; err.hidden = false; yes.disabled = false; return; }
+        done(true);
+      };
+      no.onclick = () => done(null);
+      dlg.onclose = () => done(null);
+      dlg.showModal();
+    });
+  }
+  async function approveCall(t, decision, note, as) {
+    try {
+      await api('POST', '/tasks/' + encodeURIComponent(t.id) + '/approve', { decision, note: note || '', as: as || undefined });
+      await reloadOne(t.id); afterWrite(); return '';
+    } catch (e) { return String(e.message || 'the approval failed, try again'); }
+  }
+  function askAct(t, a, decision, note) {
+    if (decision === 'decline') {
+      return askConfirm('Decline: ' + a.text + '?', 'Decline', true, (n) => approveCall(t, 'decline', n, a.as));
+    }
+    if (a.kind === 'merge') {
+      return askConfirm('Merge pull request ' + (prNumber(t) || '') + ' into main?', 'Merge', false, () => approveCall(t, 'approve', '', a.as));
+    }
+    if (a.kind === 'go') {
+      // A gated go's text names the gates, pull request and head the press attests (Reviewer, PR 67).
+      if (Array.isArray(a.gates) && a.gates.length) return askConfirm('Give the go on ' + (t.key || 'this card') + ': ' + a.text + '?', 'Go', false, () => approveCall(t, 'approve', '', a.as));
+      return askConfirm('Give the go for production on ' + (t.key || 'this card') + '?', 'Go', false, () => approveCall(t, 'approve', '', a.as));
+    }
+    if (a.kind === 'answer' || a.kind === 'decide') {
+      // The service needs a note on these. A typed answer goes straight through; Approve alone records the recommendation as taken.
+      if (note) return approveCall(t, 'approve', note, a.as).then((m) => { if (m) $('sync').textContent = m; });
+      return askConfirm('Approve: ' + a.text, 'Approve', true, (n) => approveCall(t, 'approve', n || '', a.as));
+    }
+    if (a.kind === 'approval' || a.kind === 'design') return approveCall(t, 'approve', '', a.as).then((m) => { if (m) $('sync').textContent = m; });
+    return write(t.id, { needsOwner: false, ask: null }, 'handled');
+  }
+  // The one action pair: the thing Owner must do as the blue button, Decline beside it.
+  function askTip(t, a) {
+    const n = prNumber(t);
+    if (a.kind === 'merge') return 'Merge pull request ' + n + ' into main. Agent or you only; it cannot be undone from here, use Roll back on the card afterwards.';
+    if (a.kind === 'go') return 'Go for production: records your go and the deploy thread starts on this card.';
+    if (a.kind === 'design') return 'Approve design: the canvas becomes the spec, and the card moves on to be built.';
+    if (a.kind === 'answer' || a.kind === 'decide') return 'Approve: records Agent\'s recommendation as the decision and puts the card back to work.';
+    if (a.kind === 'handled') return 'Handled: clears the flag on this card; nothing else changes.';
+    return 'Approve: moves the card on; nothing else changes.';
+  }
+  function askPair(t, a) {
+    const wrap = document.createElement('div'); wrap.className = 'pair';
+    const main = document.createElement('button'); main.type = 'button'; main.className = 'pri'; main.textContent = a.label; main.title = askTip(t, a);
+    main.addEventListener('click', (e) => { e.stopPropagation(); askAct(t, a, 'approve'); });
+    wrap.appendChild(main);
+    if (a.route) {
+      const dec = document.createElement('button'); dec.type = 'button'; dec.className = 'quiet'; dec.textContent = 'Decline'; dec.title = 'Decline: clears the ask; nothing else changes. You can add a note.';
+      dec.addEventListener('click', (e) => { e.stopPropagation(); askAct(t, a, 'decline'); });
+      wrap.appendChild(dec);
+    }
+    return wrap;
+  }
+  const askButtons = askPair; // the drawer rows use the same pair
+
+  // ---- Priority is three words (): Urgent 50, Normal 100, Low 150. The number stays in the data.
+  const PRIO = [['Urgent', 50], ['Normal', 100], ['Low', 150]];
+  function prioWord(p) { const n = Number(p); if (!Number.isFinite(n)) return 'Normal'; return n <= 75 ? 'Urgent' : n >= 125 ? 'Low' : 'Normal'; }
+  function prioNum(word) { const hit = PRIO.find(([w]) => w === word); return hit ? hit[1] : 100; }
+  function snapPrio(p) { return prioNum(prioWord(p)); }
+  function isUrgent(t) { return prioWord(t.priority) === 'Urgent'; }
+
+  function age(iso) { return fmt(iso).replace(/ ago$/, ''); }
+  function ini(name) { const s = String(name || '').replace(/[^A-Za-z0-9]/g, ''); return (s.slice(0, 2) || '?').toUpperCase(); }
+  function av(name, title) { return '<span class="av" title="' + esc(title || name || 'unassigned') + '">' + esc(name ? ini(name) : '?') + '</span>'; }
+  function personName(n) { const s = String(n || ''); return FROM_NAMES[s.toLowerCase()] || (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Unassigned'); }
+  function prPill(t) {
+    const e = ev(t); const n = prNumber(t); const url = safeUrl(e.pr || (t.ask && t.ask.pr));
+    return url ? '<a class="prpill" href="' + esc(url) + '" target="_blank" rel="noopener" title="Open pull request ' + esc(n) + ' on GitHub in a new tab.">PR' + (n ? ' #' + n : '') + '</a>' : '';
+  }
+  // Evidence pills: canvas, checks, Reviewer, preview. Links where there is a URL.
+  function evidencePills(t, max) {
+    const e = ev(t); const rz = reviewerOf(t); const p = [];
+    const link = (u, label, tip) => '<a href="' + esc(safeUrl(u)) + '" target="_blank" rel="noopener" title="' + esc(tip) + '">' + esc(label) + '</a>';
+    // The result comes first (): it is the thing the work made. Preview follows only when the change touched the site.
+    { const r = resultOf(t); if (r) p.push(link(safeUrl(r.url) || safeUrl(r.image), 'Result', 'Open what this card produced, in a new tab.')); }
+    if (safeUrl(e.design)) p.push(link(e.design, 'Canvas', 'Open the design canvas for this card in a new tab. Comment there; the agent revises until you approve.'));
+    // Sync writes "pass (2 runs on abc, synced from GitHub)" and runs write "checks: success"; read the word, not the exact string.
+    const ck = /fail/i.test(String(e.checks || '')) ? 'fail' : /pass|success/i.test(String(e.checks || '')) ? 'pass' : '';
+    if (ck) p.push('<span title="Checks ' + ck + ': the automated checks on the pull request' + (ck === 'pass' ? ' are green.' : ' failed; the agent fixes them before review.') + '">Checks ' + ck + '</span>');
+    if (rz.verdict) p.push('<span title="Reviewer ' + rz.verdict + ': the review verdict' + (rz.notes ? ' (' + esc(rz.notes) + ')' : '') + '.">Reviewer ' + rz.verdict + '</span>');
+    // A site preview says nothing about an image or file result, and the repo workflow writes it on every pull request.
+    { const r = resultOf(t); var showPrev = safeUrl(e.preview) && !e.previewNote && !(r && safeUrl(r.image)); }
+    if (showPrev) p.push(link(e.preview, 'Preview site', 'Open the website as it looks with this change, in a new tab.' + (e.previewNote ? ' ' + String(e.previewNote) : '')));
+    if (!max) {
+      if (safeUrl(e.liveUrl)) p.push(link(e.liveUrl, 'Live site', 'Open the live site this card deployed to, in a new tab.'));
+      if (safeUrl(e.reviewerReport)) p.push(link(e.reviewerReport, 'Reviewer report', 'Open Reviewer\'s written review in a new tab.'));
+      if (safeUrl(t.link) && safeUrl(t.link) !== safeUrl(e.pr)) p.push(link(t.link, 'Link', 'Open the link attached to this card in a new tab.'));
+      if (e.deployId) p.push('<span title="The deploy id recorded for this card.">Deploy ' + esc(e.deployId) + '</span>');
+    }
+    return (max ? p.slice(0, max) : p).join('');
+  }
+
+  // ---- Three-dot menu: one popover for the tile and the open card, only the entries that apply.
+  let menuEl = null;
+  const ROLLBACK_TIP = 'Roll back: creates a new card that undoes this one, using its rollback section. The undo goes through review like any change.';
+  const MORE_TIP = 'More actions for this card: start, pause, release, roll back, delete.';
+  const START_AGAIN_TIP = 'Start again is unavailable until the prior cloud run records its completion and matches its Start claim. If its outcome is uncertain, that run needs reconciliation first.';
+  function completedStart(t) {
+    const e = t.evidence || {}; const start = e.start || {}; const result = e.result || {};
+    const claimed = Date.parse(start.claimedAt); const completed = Date.parse(result.completedAt);
+    return t.status === 'todo' && start.state === 'acknowledged' && typeof e.run === 'string' && !!e.run &&
+      typeof result.startId === 'string' && result.startId === start.id &&
+      typeof result.completedAt === 'string' && Number.isFinite(claimed) &&
+      Number.isFinite(completed) && completed >= claimed;
+  }
+  function closeMenu() { if (menuEl) { const m = menuEl; menuEl = null; m.remove(); } }
+  function menuItems(t) {
+    const items = []; const open = t.status !== 'done'; const kind = t.kind || 'human';
+    const rb = (t.evidence && t.evidence.rollback && typeof t.evidence.rollback === 'object') ? t.evidence.rollback : null;
+    // nothing starts on its own. Start now is the only trigger; the runners act on nudged cards only.
+    if (MOD.start && kind === 'agent' && t.status === 'todo' && !t.hold && (!t.nudgedAt || t.pokedAt)) {
+      const blocked = !!t.pokedAt && !completedStart(t);
+      items.push([blocked ? 'Start again (awaiting completion)' : t.pokedAt ? 'Start again' : 'Start now', () => write(t.id, { nudgedAt: new Date().toISOString(), pokedAt: '' }, 'nudged by Owner: start now'),
+        blocked ? START_AGAIN_TIP : 'Start now: starts the agents on this card. Where the board has a cloud run, it begins right away.', blocked]);
+    }
+    if (MOD.start && kind === 'agent' && t.status === 'todo' && t.nudgedAt && !t.pokedAt) items.push(['Cancel start', () => write(t.id, { nudgedAt: '' }, 'nudge withdrawn'), 'Cancel start: the agents leave this card alone until you start it again.']);
+    if (kind === 'human' && open) items.push(['Release to agents', () => write(t.id, { kind: 'agent', lane: DEFAULT_LANE, status: 'todo', needsOwner: false, ask: null }, 'released to the agent, status ' + ARROW + ' to do'), 'Release to agents: hands this card to the agent as an agent card, back in To do. Press Start now when it should begin.']);
+    if (open && MOD.start) items.push([t.hold ? 'Resume' : 'Pause', () => write(t.id, t.hold ? { hold: false, stopRequested: '' } : { hold: true, stopRequested: new Date().toISOString() }, t.hold ? 'resumed' : 'paused: on hold, running work asked to pause'), t.hold ? 'Resume: the agents may pick this card up again.' : 'Pause: the agents leave this card alone until you resume. Running work is asked to stop.']);
+    if (rb && has(rb.to)) items.push(['Roll back', () => rollbackCard(t), ROLLBACK_TIP]);
+    if (me.isAdmin !== false) items.push(null, ['Delete', () => askDelete(t), 'Delete: removes the card for good. You are asked once more first.']);
+    return items;
+  }
+  function openMenu(btn, t, container) {
+    if (menuEl && menuEl.dataset.for === t.id) { closeMenu(); return; }
+    closeMenu();
+    const items = menuItems(t); if (!items.length) return;
+    const m = document.createElement('div'); m.className = 'menu'; m.setAttribute('role', 'menu'); m.dataset.for = t.id; if (container.tagName === 'LI') m.dataset.tile = '1';
+    for (const it of items) {
+      if (!it) { m.appendChild(document.createElement('hr')); continue; }
+      const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = it[0]; if (it[2]) b.title = it[2];
+      b.disabled = it[3] === true; if (b.disabled) b.setAttribute('aria-disabled', 'true');
+      else b.addEventListener('click', async (e) => { e.stopPropagation(); b.disabled = true; closeMenu(); await it[1](); });
+      m.appendChild(b);
+      if (b.disabled) {
+        const help = document.createElement('span'); help.className = 'menu-help'; help.id = 'start-again-help'; help.textContent = it[2];
+        b.setAttribute('aria-describedby', help.id); m.appendChild(help);
+      }
+    }
+    m.addEventListener('click', (e) => e.stopPropagation());
+    m.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      const bs = [...m.querySelectorAll('button:not(:disabled)')]; const i = bs.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); (bs[i + 1] || bs[0]).focus(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); (bs[i - 1] || bs[bs.length - 1]).focus(); }
+      if (e.key === 'Escape') { e.preventDefault(); closeMenu(); btn.focus(); }
+      // Tab leaves the menu: close it and let Tab carry on from the button that opened it.
+      if (e.key === 'Tab') { closeMenu(); btn.focus(); }
+    });
+    // Safari and Firefox on Mac do not focus a clicked button; keep focus put so focusout does not close the menu before the click lands.
+    m.addEventListener('mousedown', (e) => e.preventDefault());
+    m.addEventListener('focusout', (e) => { if (menuEl === m && !m.contains(e.relatedTarget)) closeMenu(); });
+    // The menu sits on the page, not inside the card or the detail panel, so neither can clip it (overflow hidden).
+    document.body.appendChild(m);
+    const br = btn.getBoundingClientRect();
+    m.style.right = Math.max(8, window.innerWidth - br.right) + 'px';
+    const mh = m.offsetHeight;
+    m.style.top = Math.max(8, br.bottom + 4 + mh > window.innerHeight - 8 ? br.top - mh - 4 : br.bottom + 4) + 'px';
+    menuEl = m; const first = m.querySelector('button:not(:disabled)'); if (first) first.focus({ preventScroll: true });
+  }
+  window.addEventListener('scroll', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); }, true);
+  window.addEventListener('resize', () => closeMenu());
+  document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target) && !(e.target.closest && e.target.closest('.more, .ib.menu-btn'))) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menuEl) { e.preventDefault(); e.stopPropagation(); closeMenu(); } }, true);
+
+  // ---- Tooltips (): every control explains itself in plain words. The title attribute is the
+  // source (data-tip where a title would be wrong), shown in one shared box after 400ms on hover and at once on
+  // keyboard focus. The title is parked in data-title while the box is up so the browser's own tip stays quiet.
+  const tipBox = $('tip'); let tipTimer = 0; let tipFor = null;
+  function tipText(el) { return el.getAttribute('data-tip') || el.getAttribute('title') || el.getAttribute('data-title') || ''; }
+  function tipTarget(node) { return node && node.closest ? node.closest('[title], [data-tip], [data-title]') : null; }
+  function showTip(el) {
+    const text = tipText(el); if (!text) return;
+    if (el.hasAttribute('title')) { el.setAttribute('data-title', el.getAttribute('title')); el.removeAttribute('title'); }
+    tipFor = el; tipBox.textContent = text; tipBox.hidden = false;
+    const r = el.getBoundingClientRect(); const w = tipBox.offsetWidth; const h = tipBox.offsetHeight;
+    let x = r.left + r.width / 2 - w / 2; x = Math.max(8, Math.min(x, window.innerWidth - w - 8));
+    let y = r.top - h - 8; if (y < 8) y = r.bottom + 8;
+    tipBox.style.left = Math.round(x) + 'px'; tipBox.style.top = Math.round(y) + 'px';
+  }
+  function hideTip() {
+    clearTimeout(tipTimer); tipTimer = 0;
+    if (tipFor && tipFor.hasAttribute('data-title') && document.contains(tipFor)) { tipFor.setAttribute('title', tipFor.getAttribute('data-title')); tipFor.removeAttribute('data-title'); }
+    tipFor = null; tipBox.hidden = true;
+  }
+  document.addEventListener('mouseover', (e) => {
+    const el = tipTarget(e.target); if (!el || el === tipFor) return;
+    hideTip(); if (!tipText(el)) return;
+    tipTimer = setTimeout(() => showTip(el), 400);
+  });
+  document.addEventListener('mouseout', (e) => { const el = tipTarget(e.target); if (el && !(e.relatedTarget && el.contains(e.relatedTarget))) hideTip(); });
+  document.addEventListener('focusin', (e) => { const el = tipTarget(e.target); hideTip(); if (el && el === e.target) showTip(el); });
+  document.addEventListener('focusout', hideTip);
+  document.addEventListener('scroll', hideTip, true);
+  document.addEventListener('pointerdown', hideTip, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); }, true);
+
+  // Roll back: POST /tasks/:id/rollback makes the reversing card; the new key lands on the sync line.
+  function rollbackCard(t) {
+    const rb = (t.evidence && t.evidence.rollback) || {};
+    return askConfirm('Roll back ' + (t.key || 'this card') + '? Goes back to: ' + (rb.to || 'not written') + '.', 'Roll back', false, async () => {
+      try {
+        const r = await api('POST', '/tasks/' + encodeURIComponent(t.id) + '/rollback', {});
+        const nk = (r && (r.key || (r.task && (r.task.key || (r.task.data && r.task.data.key))) || (r.data && r.data.key))) || '';
+        $('sync').textContent = nk ? 'Rollback card ' + nk + ' created' : 'Rollback started'; holdSyncUntil = Date.now() + 20000;
+        await reloadOne(t.id); afterWrite(); return '';
+      } catch (e) { return String(e.message || 'the rollback failed, try again'); }
+    });
+  }
+
+  // Being worked (): in progress, not paused, and either picked up by a run (pokedAt) or touched in the
+  // last two hours by anyone. An in progress card nobody has touched since then reads as idle, never as working.
+  const ACTIVE_HOURS = 2;
+  // An open @mention (): asked in a comment, not yet answered. While a woken run answers it (fired in the
+  // last two hours) the card animates like any worked card.
+  const openMention = (t) => { const m = t && t.mention && typeof t.mention === 'object' ? t.mention : null; return m && m.to && !m.answeredAt && t.status !== 'done' ? m : null; };
+  const answering = (t) => { const m = openMention(t); return !!(m && m.firedAt && Date.now() - Date.parse(m.firedAt) < 2 * 3600 * 1000); };
+  // Started (): Start fired the project and its run has not claimed the card yet, which takes a few
+  // minutes while it clones and reads. It animates like a worked card for half an hour, then says it was not picked up.
+  const START_WAIT_MS = 30 * 60 * 1000;
+  const startedAt = (t) => { const e = t.evidence || {}; return t.status === 'todo' && !t.hold && t.nudgedAt && t.pokedAt && (e.start || {}).state !== 'rejected' && !e.run ? Date.parse(t.pokedAt) || 0 : 0; };
+  const isStarting = (t) => { const at = startedAt(t); return !!at && Date.now() - at < START_WAIT_MS; };
+  const startStuck = (t) => { const at = startedAt(t); return !!at && Date.now() - at >= START_WAIT_MS; };
+  const isRunning = (t) => answering(t) || isStarting(t) || (t.status === 'doing' && !t.hold && (!!t.pokedAt && hoursSinceTouch(t) < 24 || hoursSinceTouch(t) < ACTIVE_HOURS));
+  const isIdle = (t) => t.status === 'doing' && !t.hold && !isRunning(t);
+  function card(t, showBoard) {
+    const li = document.createElement('li');
+    const askI = askInfo(t);
+    const need = needsOwner(t);
+    li.className = 'card' + (need ? ' need' : '') + (isRunning(t) ? ' running' : '');
+    li.dataset.s = t.status; li.dataset.id = t.id; li.tabIndex = 0; li.setAttribute('role', 'button'); li.title = 'Open this card in a panel. Press Enter when it has focus.';
+    let html = '<div class="hd">' + (isUrgent(t) ? '<span class="dot" title="Urgent: do this before the normal ones." aria-label="Urgent"></span>' : '') + '<span class="key">' + esc(t.key || '') + '</span>' + prPill(t) +
+      (need ? '<span class="need-lbl" title="Needs you: this card is waiting on a decision only you can make.">Needs you</span>' : isStarting(t) ? '<span class="run-lbl" title="Start fired the project. Its run picks this card up within a few minutes.">Starting</span>' : isRunning(t) ? '<span class="run-lbl" title="A cloud run is working on this card now.">Agents working</span>' : '<span class="age" title="Time since the last change to this card.">' + esc(age(t.updated)) + '</span>') + '</div>';
+    html += '<div class="t">' + esc(t.title) + '</div>';
+    { const r = resultOf(t); const img = r && safeUrl(r.image); if (img) html += '<img class="thumb" src="' + esc(img) + '" alt="' + esc(r.label || 'Result') + '" loading="lazy" title="The result. Open the card to see it full size.">'; }
+    if (t.note) html += '<div class="m" title="' + esc(t.note) + '">' + esc(t.note) + '</div>';
+    const dc = steps(t); const dcDone = dc.filter((c) => c.done).length;
+    if (t.status === 'doing' && dc.length) html += '<div class="bar' + (isRunning(t) ? ' live' : '') + '" aria-hidden="true"><div style="width:' + Math.round(100 * dcDone / dc.length) + '%"></div></div>';
+    const pills = evidencePills(t, 3); if (pills) html += '<div class="evl">' + pills + '</div>';
+    { const p = projectOf(t); if (p) html += '<div class="pj">' + projectLink(p) + '</div>'; }
+    li.innerHTML = html;
+    if (askI) {
+      if (toAgent(t)) {
+        const w = document.createElement('div'); w.className = 'wait'; w.textContent = askI.kind === 'merge' ? 'Waiting on Agent to merge' : 'Waiting on Agent'; li.appendChild(w);
+        // Agent approves merges now, but Owner is never blocked; he can still press it himself.
+        if (askI.kind === 'merge' && canWrite !== false && db && isOwner()) li.appendChild(askPair(t, askI));
+      }
+      else if (canWrite !== false && db && isOwner()) {
+        // A question or a decision shows its words above the pair; the open card carries the full recommendation for the rest.
+        if ((askI.kind === 'answer' || askI.kind === 'decide') && askI.text !== askI.label) { const tx = document.createElement('div'); tx.className = 'rec'; tx.textContent = askI.text; li.appendChild(tx); }
+        li.appendChild(askPair(t, askI));
+      }
+    }
+    { const m = openMention(t); if (m && !toAgent(t)) { const w = document.createElement('div'); w.className = 'wait'; w.textContent = 'Waiting on ' + personName(m.to); w.title = 'Asked in a comment: ' + String(m.text || ''); li.appendChild(w); } }
+    const extra = [];
+    if (need) extra.push(age(t.updated));
+    if (showBoard) extra.push(boardName(t.board));
+    if (t.hold) extra.push('Paused');
+    else if (t.nudgedAt && !t.pokedAt && t.status === 'todo') extra.push(projectOf(t) ? 'Starting' : 'No project works this card');
+    else if (startStuck(t)) extra.push('Start not picked up after ' + age(t.pokedAt));
+    if (!projectOf(t) && (t.kind || 'human') === 'agent' && t.status !== 'done' && !t.nudgedAt) extra.push('No project');
+    if (isCust(t)) extra.push('Waiting on customer');
+    if (t.status === 'doing' && dc.length) extra.push(dcDone + ' of ' + dc.length + ' done');
+    const nc = arr(t.comments).length; if (nc) extra.push(nc + (nc === 1 ? ' comment' : ' comments'));
+    if (isIdle(t)) extra.push('Idle since ' + new Date(t.updated || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    const ft = document.createElement('div'); ft.className = 'ft';
+    ft.innerHTML = av(t.owner) + '<span class="own">' + esc(personName(t.owner)) + extra.map((x) => ' \u00b7 ' + esc(x)).join('') + '</span>';
+    if (canWrite !== false && db) {
+      const more = document.createElement('button'); more.type = 'button'; more.className = 'more'; more.setAttribute('aria-label', 'More'); more.setAttribute('aria-haspopup', 'menu'); more.innerHTML = '&middot;&middot;&middot;'; more.title = MORE_TIP;
+      more.addEventListener('click', (e) => { e.stopPropagation(); openMenu(more, t, li); });
+      ft.appendChild(more);
+    }
+    li.appendChild(ft);
+    const open = () => openDetail(t.id);
+    li.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a, button, .menu, .pair, .rec')) return; open(); });
+    li.addEventListener('keydown', (e) => { if (e.target !== li) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    return li;
+  }
+
+  // ---- Open card pieces. The generator preview renders the same header, brief and done when with live = false.
+  function headHtml(t, titleId, preview) {
+    const need = !preview && needsOwner(t);
+    const proj = projectOf(t);
+    const meta = ['<span class="key">' + esc(t.key || 'NEW') + '</span>' + prPill(t), esc(boardName(t.board)) + (proj ? ' ' + projectLink(proj) : ''), esc(COLNAME[t.status] || t.status || 'To do')];
+    if (t.hold) meta.push('Paused');
+    const run = !preview && isRunning(t);
+    if (run && isStarting(t)) meta.push('<span class="run-lbl" title="Start fired the project. Its run picks this card up within a few minutes.">Starting</span>');
+    else if (run) meta.push('<span class="run-lbl" title="A cloud run is working on this card now.">Agents working</span>' + (t.evidence && t.evidence.run ? ' <a href="' + esc(safeUrl(t.evidence.run)) + '" target="_blank" rel="noopener" title="Open the live run in Claude.">Watch</a>' : ''));
+    if (need) meta.push('<span class="need-lbl" title="Needs you: this card is waiting on a decision only you can make.">Needs you</span>');
+    return '<div class="hl"><div class="meta">' + meta.join('<span>&middot;</span>') + '</div><h3' + (titleId ? ' id="' + titleId + '"' : '') + '>' + esc(t.title || 'Untitled') + '</h3>' + (run ? '<div class="runbar" aria-hidden="true"></div>' : '') + '</div>';
+  }
+  // evidence.result is {label, url, image, at}: the deliverable a run produced. Newest wins; runs overwrite it.
+  function resultOf(t) { const r = ev(t).result; return r && typeof r === 'object' && (safeUrl(r.url) || safeUrl(r.image)) ? r : null; }
+  function resultHtml(t) {
+    const r = resultOf(t); if (!r) return '';
+    const url = safeUrl(r.url) || safeUrl(r.image); const img = safeUrl(r.image);
+    return '<section class="result" aria-label="Result"><div class="rh"><b>Result</b>' + (r.at ? '<span>' + esc(age(r.at)) + '</span>' : '') + '</div>' +
+      (r.label ? '<div class="rl">' + esc(r.label) + '</div>' : '') +
+      (img ? '<a href="' + esc(url) + '" target="_blank" rel="noopener" title="Open the full result in a new tab."><img src="' + esc(img) + '" alt="' + esc(r.label || 'Result') + '" loading="lazy"></a>' : '') +
+      '<div><a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener" title="Open the result in a new tab.">Open result</a></div></section>';
+  }
+  function sec(label, inner, sub) {
+    return inner ? '<section class="sec"><div class="sh">' + label + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</div>' + inner + '</section>' : '';
+  }
+  function bullets(list, cls) {
+    const items = arr(list).map((x) => (x && typeof x === 'object' ? x.text || x.label || '' : x)).filter(has);
+    return items.length ? '<ul' + (cls ? ' class="' + cls + '"' : '') + '>' + items.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '';
+  }
+  function briefHtml(t) {
+    const b = t.brief || {};
+    let top = '';
+    if (typeof b.objective === 'string' && b.objective.trim()) top += '<div class="obj">' + esc(b.objective) + '</div>';
+    if (typeof b.outOfScope === 'string' && b.outOfScope.trim()) top += '<div class="oos"><span>Out of scope:</span> ' + esc(b.outOfScope) + '</div>';
+    let more = '';
+    const txt = (k, l, cls) => (typeof b[k] === 'string' && b[k].trim() ? '<dt>' + l + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(b[k]) + '</dd>' : '');
+    more += txt('spec', 'Spec', 'spec') + txt('scope', 'Scope');
+    const req = bullets(b.requirements); if (req) more += '<dt>Requirements</dt><dd>' + req + '</dd>';
+    const files = bullets(b.files); if (files) more += '<dt>Files</dt><dd>' + files + '</dd>';
+    const con = bullets(b.constraints); if (con) more += '<dt>Constraints</dt><dd>' + con + '</dd>';
+    const ctx = arr(b.context).map((c) => (c && typeof c === 'object' ? c : { label: String(c), url: String(c) })).filter((c) => c.label || c.url);
+    if (ctx.length) more += '<dt>Context</dt><dd><ul>' + ctx.map((c) => '<li>' + linkHtml(c.url, c.label || c.url) + '</li>').join('') + '</ul></dd>';
+    for (const [k, l] of LEGACY_BRIEF) { const v = b[k]; if (typeof v === 'string' && v.trim()) more += '<dt>' + l + '</dt><dd>' + esc(v) + '</dd>'; else if (Array.isArray(v) && v.length) more += '<dt>' + l + '</dt><dd>' + esc(v.join('; ')) + '</dd>'; }
+    const steps = arr(t.testSteps).filter(has);
+    if (steps.length) more += '<dt>Test steps</dt><dd><ol>' + steps.map((s) => '<li>' + esc(s) + '</li>').join('') + '</ol></dd>';
+    if (t.expected) more += '<dt>Expected</dt><dd>' + esc(t.expected) + '</dd>';
+    if (ROLES.some(([k]) => roleOf(t, k))) more += '<dt>Roles</dt><dd>' + ROLES.map(([k, l]) => { const r = roleOf(t, k); return r ? l + ': ' + esc(r.name || 'none') + ' (' + r.state + ')' : ''; }).filter(Boolean).join('<br>') + '</dd>';
+    if (!top && !more) return '';
+    return sec('Brief', '<div class="brief">' + top + (more ? '<details class="morebrief"><summary title="Show the rest of the brief: spec, scope, files, constraints, test steps and roles.">More of the brief</summary><dl class="kv">' + more + '</dl></details>' : '') + '</div>');
+  }
+  function doneWhenHtml(t) {
+    const all = crit(t); const dc = all.filter((c) => !c.heading); if (!all.length) return '';
+    return sec('Done when', '<div class="dw">' + all.map((c) => c.heading ? '<h4 class="dwh">' + esc(c.text) + '</h4>' : '<div' + (all[0].heading ? ' class="dws"' : '') + '><span class="sq' + (c.done ? '' : ' off') + '" title="' + (c.done ? 'Done' + (c.by ? ' by ' + esc(personName(c.by)) : '') + '. The agent ticks these off; you do not have to.' : 'Not done yet. The agent ticks it off when it is true.') + '"></span><span' + (c.done ? '' : ' class="off-t"') + '>' + esc(c.text) + (c.done && (c.by || c.at) ? ' <span class="mut">\u00b7 ' + esc([personName(c.by), fmtAt(c.at)].filter(Boolean).join(' ')) + '</span>' : '') + '</span></div>').join('') + '</div>', dc.filter((c) => c.done).length + ' of ' + dc.length);
+  }
+  function rollbackHtml(t) {
+    const rb = (t.evidence && t.evidence.rollback && typeof t.evidence.rollback === 'object') ? t.evidence.rollback : null;
+    const row = (l, v, tip) => '<div title="' + tip + '"><span>' + l + '</span><span>' + (has(v) ? esc(v) : '') + '</span></div>';
+    const rows = row('Goes back to', rb && rb.to, 'Goes back to: the state the site or data returns to if this card is rolled back.') + row('How', rb && rb.how, 'How: the way the undo is done, normally a reversing pull request through review and merge.') + row('Does not undo', rb && (rb.cannot ?? rb.notUndo), 'Does not undo: what stays changed even after a rollback, such as a migration or a sent email.');
+    const sub = rb && (rb.by || rb.at) ? 'Written by ' + esc(personName(rb.by || 'the agent')) + (rb.at ? ' ' + esc(fmt(rb.at)) : '') : '';
+    const inner = '<div class="rows">' + rows + '</div>' + (rb && has(rb.to)
+      ? (canWrite !== false && db ? '<div><button type="button" class="quiet" data-rollback title="' + ROLLBACK_TIP + '">Roll back this card</button></div>' : '')
+      : '<div class="none">Not written yet. The agent fills this in before review.</div>');
+    return '<section class="sec rb"><div class="sh">Rollback' + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</div>' + inner + '</section>';
+  }
+  // Comments (): the thread Owner, Agent and the agents talk in. The board stamps who and when;
+  // nothing is edited or removed. Oldest first, so it reads like a conversation.
+  const MENTIONS = [];
+  function commentsHtml(t, live) {
+    const list = arr(t.comments).filter((c) => c && typeof c === 'object' && has(c.text));
+    if (!list.length && !live) return '';
+    // An @name shows bold; a comment that answered a mention says so.
+    const atRe = new RegExp('(^|[^\\w@.])(@(?:' + MENTIONS.join('|') + '))\\b', 'gi');
+    const body = (txt) => esc(txt).replace(atRe, '$1<b class="at">$2</b>');
+    const who = (c) => (has(c.answering) && c.answering !== c.by ? personName(c.answering) + ', via ' + personName(c.by) : personName(c.by));
+    const rows = list.map((c) => '<div class="row">' + av(has(c.answering) ? c.answering : c.by) + '<div><span class="nm">' + esc(who(c)) + '</span> <span class="wt">' + esc(age(c.at)) + (c.answers ? ', answer' : '') + '</span><div class="tx">' + body(c.text) + '</div></div></div>').join('');
+    const m = openMention(t);
+    const state = !m ? '' : '<div class="mstate">' + (m.to === 'agent' ? 'Waiting on Agent. She sees it the next time she checks the board.'
+      : m.unwired ? 'Asked ' + esc(personName(m.to)) + ', but no cloud run is set up for ' + esc(personName(m.to)) + ' on this board, so nobody was woken.'
+      : m.firedAt ? 'Asked ' + esc(personName(m.to)) + ' ' + esc(age(m.firedAt)) + '. Their project is answering.'
+      : m.paused ? 'Asked ' + esc(personName(m.to)) + '. This card already woke an agent six times this hour, so the question waits for the next run.'
+      : m.triedAt ? esc(personName(m.to)) + ' could not be woken. Comment again with the @name to retry.' : 'Waiting on ' + esc(personName(m.to)) + '.')
+      + (arr(m.next).length ? ' ' + arr(m.next).length + ' more ' + (arr(m.next).length === 1 ? 'question waits' : 'questions wait') + ' after this one.' : '') + '</div>';
+    const add = live ? '<div class="cmtadd"><textarea class="dCmtIn" maxlength="2000" rows="2" placeholder="Write a comment. Type @name to ask an agent." aria-label="Write a comment" title="A comment on this card for Owner, Agent and the agents. An @name wakes that agent to answer here. Ctrl+Enter or Comment posts it; comments are kept and never edited."></textarea><div class="mpick" role="listbox" aria-label="Who to ask" hidden></div><button type="button" class="quiet" data-cmt title="Comment: posts this to the card. Agents read the comments before they work it.">Comment</button></div>' : '';
+    return sec('Comments', '<div class="cmts">' + (rows || '<div class="none">No comments yet.</div>') + state + add + '</div>', list.length ? String(list.length) : '');
+  }
+  function activityHtml(t, actAll) {
+    const hist = arr(t.history).filter((h) => h && typeof h === 'object').slice().sort((a, b2) => String(b2.at || '').localeCompare(String(a.at || '')));
+    if (!hist.length) return '';
+    const show = actAll ? hist : hist.slice(0, 5);
+    return sec('Activity', '<div class="act">' + show.map((h) => '<div class="row">' + av(h.by) + '<div><span class="nm">' + esc(personName(h.by)) + '</span> <span class="wt">' + esc(h.what || '') + ' \u00b7 ' + esc(age(h.at)) + '</span></div></div>').join('') +
+      (hist.length > show.length ? '<button type="button" class="morebtn" data-actmore title="Show the rest of this card\'s history.">Show ' + (hist.length - show.length) + ' more</button>' : '') + '</div>');
+  }
+  function skillsHtml(t, live, preview) {
+    const req = arr(t.skillsRequired).map(String).filter(Boolean);
+    const used = arr(t.skillsUsed).map(String).filter(Boolean);
+    const manual = arr(t.skillsManual).map(String).filter(Boolean);
+    const words = (n) => esc(String(n).replace(/-/g, ' '));
+    if (!req.length && !used.length && !live) return '';
+    const chip = (n, rm) => '<span class="sk">' + words(n) + (rm ? '<span class="ktag">Owner</span>' + (live ? '<button type="button" class="skx" data-rmskill="' + esc(n) + '" aria-label="Remove ' + esc(n) + '" title="Remove this skill from the required list. Skills the work type needs stay.">&times;</button>' : '') : '') + '</span>';
+    let out = '';
+    if (!preview) out += '<div><span class="rk">Skills used</span><div class="rv soft">' + (used.length ? used.map(words).join(', ') : '<span class="mut">none yet</span>') + '</div></div>';
+    out += '<div><span class="rk">Skills required</span><div class="rv"><span class="sks">' + (req.length ? req.map((n) => chip(n, manual.includes(n))).join('') : '<span class="mut">none</span>') + '</span></div>' +
+      (live && !preview ? '<div class="skadd"><input class="dSkillIn" list="dSkillList-' + esc(t.id || 'new') + '" maxlength="60" autocomplete="off" placeholder="Skill name" aria-label="Skill name" title="Type a skill name and press Enter or Add to require it on this card."><datalist id="dSkillList-' + esc(t.id || 'new') + '">' + SKILL_NAMES.map((n) => '<option value="' + esc(n) + '"></option>').join('') + '</datalist><button type="button" data-addskill title="Add: requires this skill on the card. The agent must load it before working.">Add</button></div>' : '') + '</div>';
+    return out;
+  }
+  const LANE_DESC = {};
+  function kindWord(t) { const k = t.kind || 'human'; return k === 'production' ? 'Production' : k === 'agent' ? 'Agent task' : 'Human task'; }
+  const OWNERS = ['owner', 'agent'];
+  function options(list, value, labelOf) {
+    const all = value && !list.includes(value) ? [value, ...list] : list;
+    return all.map((v) => '<option value="' + esc(v) + '"' + (v === value ? ' selected' : '') + '>' + esc(labelOf ? labelOf(v) : v) + '</option>').join('');
+  }
+  function railHtml(t, live) {
+    const e = ev(t); const rz = reviewerOf(t); const g = t.gates || {};
+    const branch = has(e.branch) ? e.branch : has(t.branch) ? t.branch : '';
+    const touched = [...new Set([t.createdBy, ...arr(t.touchedBy)].filter(Boolean).map(String))];
+    let out = '';
+    out += '<div><span class="rk">Owner</span><div class="rv">' + av(t.owner) + (live ? '<select class="sel" data-owner aria-label="Owner" title="Change who owns this card. Saves at once and goes into the history.">' + options(OWNERS, String(t.owner || '').toLowerCase(), personName) + '</select>' : esc(personName(t.owner))) + '</div></div>';
+    out += '<div><span class="rk">Lane</span><div class="rv">' + (t.lane ? esc(LANE_DESC[t.lane] || LANES[t.lane] || t.lane) : '<span class="mut">none</span>') + '</div></div>';
+    out += '<div><span class="rk">Kind</span><div class="rv">' + kindWord(t) + '</div></div>';
+    if (live) {
+      const statusOpts = [...STATUS, ['done', 'Done']].map(([k, n]) => '<option value="' + k + '"' + (k === t.status && !isCust(t) ? ' selected' : '') + '>' + n + '</option>').join('') + '<option value="customer"' + (isCust(t) ? ' selected' : '') + '>Waiting on customer</option>';
+      out += '<div><span class="rk">Status</span><div class="rv"><select class="sel" data-status aria-label="Status" title="Move this card to another column. Saves at once. Approval needed flags it for you; Done needs the rollback section written.">' + statusOpts + '</select></div></div>';
+      out += '<div><span class="rk">Priority</span><div class="rv">' + (isUrgent(t) ? '<span class="dot" aria-hidden="true"></span>' : '') + '<select class="sel" data-prio aria-label="Priority" title="Urgent, Normal or Low. Urgent cards show an amber dot. Saves at once.">' + options(PRIO.map(([w]) => w), prioWord(t.priority)) + '</select></div></div>';
+    } else {
+      out += '<div><span class="rk">Priority</span><div class="rv">' + (isUrgent(t) ? '<span class="dot" aria-hidden="true"></span>' : '') + prioWord(t.priority) + '</div></div>';
+    }
+    out += '<div><span class="rk">Review</span><div class="rv">' + (rz.verdict ? 'Reviewer ' + rz.verdict + (rz.notes ? ' \u00b7 ' + esc(rz.notes) : '') : '<span class="mut">no verdict yet</span>') + '</div></div>';
+    if ((t.kind || 'human') === 'production') {
+      var tier = t.risk === 1 || t.risk === 2 || t.risk === 3 ? t.risk : 3;
+      out += '<div><span class="rk">Risk</span><div class="rv">Tier ' + tier + (t.riskWhy ? ' \u00b7 ' + esc(t.riskWhy) : t.risk === undefined ? ' <span class="mut">(no tier named)</span>' : '') + '</div></div>';
+      out += '<div><span class="rk">Go</span><div class="rv">' + (g.ownerGo ? 'Given ' + esc(fmtAt(g.ownerGoAt || (g.ownerGo === true ? '' : g.ownerGo))) : tier === 1 ? '<span class="mut">none needed (tier 1)</span>' : '<span class="mut">not given</span>') + '</div></div>';
+    }
+    if (branch) out += '<div><span class="rk">Branch</span><div class="rv">' + (safeUrl(branch) ? '<a href="' + esc(safeUrl(branch)) + '" target="_blank" rel="noopener" title="Open this branch on GitHub in a new tab.">' + esc(branch.replace(/^https?:\/\/[^/]+\//, '').replace(/^.*\/tree\//, '')) + '</a>' : esc(branch)) + '</div></div>';
+    out += skillsHtml(t, live, false);
+    if (touched.length) out += '<div><span class="rk">Touched by</span><div class="rv avs">' + touched.map((n) => av(n, personName(n) + (n === t.createdBy ? ' created' : ' touched'))).join('') + '</div></div>';
+    out += '<div class="rail-foot"><span>Created ' + esc(fmtAt(t.created) || 'unknown') + (t.createdBy ? ' by ' + esc(personName(t.createdBy)) : '') + '</span><span>Updated ' + esc(fmt(t.updated) || 'never') + (t.updatedBy ? ' by ' + esc(personName(t.updatedBy)) : '') + '</span></div>';
+    return out;
+  }
+  // The ask block at the top of the open card: Agent's recommendation or the plain Needs you.
+  function askBlock(t, askI, aDraft, aFocus) {
+    const box = document.createElement('section'); box.className = 'askbox';
+    const lbl = document.createElement('div'); lbl.className = 'sh'; lbl.textContent = String(askI.by || '').toLowerCase() === 'agent' ? 'Agent recommends' : 'Needs you'; box.appendChild(lbl);
+    const tx = document.createElement('div'); tx.className = 'txt'; tx.textContent = askI.text; box.appendChild(tx);
+    const row = document.createElement('div'); row.className = 'row';
+    if (toAgent(t)) {
+      const w = document.createElement('span'); w.className = 'wait'; w.textContent = askI.kind === 'merge' ? 'Waiting on Agent to merge' : 'Waiting on Agent'; row.appendChild(w);
+      if (askI.kind === 'merge' && isOwner() && canWrite !== false && db) { const pair = askPair(t, askI); while (pair.firstChild) row.appendChild(pair.firstChild); }
+    }
+    else if (isOwner() && canWrite !== false && db) {
+      if (askI.kind === 'answer' || askI.kind === 'decide') {
+        const inp = document.createElement('input'); inp.type = 'text'; inp.className = 'inp dAskIn'; inp.maxLength = 500; inp.autocomplete = 'off'; inp.placeholder = 'Your answer, or approve as recommended'; inp.setAttribute('aria-label', 'Your answer'); inp.title = 'Type your answer in one line, then press Enter or Approve. Leave it empty to approve the recommendation as written.';
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'pri'; ok.textContent = 'Approve'; ok.title = askTip(t, askI);
+        const go = () => askAct(t, askI, 'approve', inp.value.trim());
+        ok.addEventListener('click', go);
+        inp.addEventListener('keydown', (ev2) => { if (ev2.key === 'Enter') { ev2.preventDefault(); go(); } });
+        const dec = document.createElement('button'); dec.type = 'button'; dec.className = 'quiet'; dec.textContent = 'Decline'; dec.title = 'Decline: clears the ask; nothing else changes. You can add a note.';
+        dec.addEventListener('click', () => askAct(t, askI, 'decline'));
+        row.appendChild(inp); row.appendChild(ok); row.appendChild(dec);
+        if (aDraft) inp.value = aDraft; if (aFocus) setTimeout(() => inp.focus(), 0);
+      } else {
+        const pair = askPair(t, askI); pair.className = 'row'; pair.style.marginTop = '0';
+        while (pair.firstChild) row.appendChild(pair.firstChild);
+      }
+    }
+    if (askI.by || askI.at) { const by = document.createElement('span'); by.className = 'by'; by.textContent = [askI.by ? personName(askI.by) : '', askI.at ? fmt(askI.at) : ''].filter(Boolean).join(' \u00b7 '); row.appendChild(by); }
+    if (row.children.length) box.appendChild(row);
+    return box;
+  }
+
+  // ---- Open cards are floating panels (): several at once, dragged by the header, no backdrop,
+  // the board behind stays live. Each panel renders in place on every refresh and keeps its spot and drafts.
+  const panels = []; let zTop = 70;
+  const panelOf = (id) => panels.find((p) => p.id === id);
+  const frontPanel = () => panels.reduce((a, p) => (!a || p.z > a.z ? p : a), null);
+  const taskOfEl = (node) => { const el = node && node.closest ? node.closest('.detail') : null; return el ? tasks.find((x) => x.id === el.dataset.id) : null; };
+  function raisePanel(p) { p.z = ++zTop; p.el.style.zIndex = p.z; }
+  // The header can never leave the viewport: x stays inside the width, y leaves at least the header on screen.
+  function placePanel(p, x, y) {
+    const w = p.el.offsetWidth; const hd = p.el.querySelector('.dhd'); const hh = hd ? hd.offsetHeight : 60;
+    p.x = Math.round(Math.min(Math.max(0, x), Math.max(0, window.innerWidth - w)));
+    p.y = Math.round(Math.min(Math.max(0, y), Math.max(0, window.innerHeight - hh)));
+    p.el.style.left = p.x + 'px'; p.el.style.top = p.y + 'px';
+  }
+  function dragPanel(p) {
+    const hd = p.el.querySelector('.dhd'); let on = false; let sx = 0; let sy = 0; let ox = 0; let oy = 0;
+    hd.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || (e.target.closest && e.target.closest('a, button, select, input'))) return;
+      on = true; sx = e.clientX; sy = e.clientY; ox = p.x; oy = p.y;
+      try { hd.setPointerCapture(e.pointerId); } catch {}
+      e.preventDefault();
+    });
+    hd.addEventListener('pointermove', (e) => { if (on) placePanel(p, ox + e.clientX - sx, oy + e.clientY - sy); });
+    const end = (e) => { if (!on) return; on = false; try { hd.releasePointerCapture(e.pointerId); } catch {} };
+    hd.addEventListener('pointerup', end); hd.addEventListener('pointercancel', end);
+  }
+  function openDetail(id) {
+    let p = panelOf(id);
+    if (p) { raisePanel(p); p.el.focus(); return; }
+    if (!tasks.some((x) => x.id === id)) return;
+    const el = document.createElement('section'); el.className = 'detail'; el.dataset.id = id; el.tabIndex = -1;
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-labelledby', 'dTitle-' + id);
+    el.innerHTML = '<div class="dhd"></div><div class="dwrap"><div class="dmain"></div><aside class="drail"></aside></div>';
+    const act = document.activeElement;
+    p = { id, el, x: 0, y: 0, z: 0, actAll: false, opener: act && act.closest ? act.closest('li.card') : null };
+    panels.push(p); $('panels').appendChild(el); raisePanel(p);
+    renderPanel(p);
+    const n = panels.length - 1;
+    placePanel(p, Math.max(16, (window.innerWidth - el.offsetWidth) / 2) + n * 32, 48 + n * 32);
+    el.addEventListener('pointerdown', () => { if (frontPanel() !== p) raisePanel(p); });
+    dragPanel(p);
+    el.focus();
+  }
+  function closePanel(id) {
+    const p = panelOf(id); if (!p) return;
+    closeMenu();
+    if (p.kind === 'new') { $('genHolder').appendChild($('add')); $('genHolder').appendChild($('genPreview')); }
+    p.el.remove(); panels.splice(panels.indexOf(p), 1);
+    const tile = p.opener && document.contains(p.opener) ? p.opener : document.querySelector('li.card[data-id="' + id.replace(/"/g, '') + '"]');
+    if (tile) tile.focus(); else { const f = frontPanel(); if (f) f.el.focus(); }
+  }
+  function renderPanels() { for (const p of [...panels]) if (p.kind !== 'new') renderPanel(p); }
+  // New card (): the Generate form lives in a floating panel instead of the top of the page.
+  // The form and its preview are the same elements; the panel borrows them and hands them back on close.
+  const NEW_ID = '__new';
+  function openNewCard() {
+    let p = panelOf(NEW_ID);
+    if (p) { raisePanel(p); $('genText').focus(); return; }
+    const el = document.createElement('section'); el.className = 'detail newcard'; el.dataset.id = NEW_ID; el.tabIndex = -1;
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-labelledby', 'dTitle-new');
+    el.innerHTML = '<div class="dhd"><div class="hl"><h3 id="dTitle-new">New card</h3></div><button type="button" class="ib x" aria-label="Close" title="Close this panel. Text you typed stays until you reload.">&#10005;</button></div><div class="dwrap"><div class="dmain"></div></div>';
+    const act = document.activeElement;
+    p = { id: NEW_ID, el, x: 0, y: 0, z: 0, kind: 'new', opener: act && act.closest ? act.closest('button') : null };
+    panels.push(p); $('panels').appendChild(el); raisePanel(p);
+    const main = el.querySelector('.dmain'); main.appendChild($('add')); main.appendChild($('genPreview'));
+    el.querySelector('.ib.x').addEventListener('click', () => closePanel(NEW_ID));
+    const n = panels.length - 1;
+    placePanel(p, Math.max(16, (window.innerWidth - el.offsetWidth) / 2) + n * 32, 48 + n * 32);
+    el.addEventListener('pointerdown', () => { if (frontPanel() !== p) raisePanel(p); });
+    dragPanel(p);
+    $('genText').focus();
+  }
+  $('newBtn').addEventListener('click', openNewCard);
+  window.addEventListener('resize', () => { for (const p of panels) placePanel(p, p.x, p.y); });
+  function renderPanel(p) {
+    const t = tasks.find((x) => x.id === p.id);
+    if (!t) { closePanel(p.id); return; }
+    if (menuEl && menuEl.dataset.for === t.id) closeMenu();
+    const live = canWrite !== false && !!db;
+    const q = (s) => p.el.querySelector(s);
+    const body = q('.dmain'); const top = body.scrollTop;
+    const aIn = q('.dAskIn'); const aDraft = aIn ? aIn.value : ''; const aFocus = !!aIn && document.activeElement === aIn;
+    const skIn = q('.dSkillIn'); const skDraft = skIn ? skIn.value : ''; const skFocus = !!skIn && document.activeElement === skIn;
+    const cIn = q('.dCmtIn'); const cDraft = cIn ? cIn.value : ''; const cFocus = !!cIn && document.activeElement === cIn;
+    const head = q('.dhd');
+    head.innerHTML = headHtml(t, 'dTitle-' + t.id) + (live ? '<button type="button" class="ib menu-btn" aria-label="More" aria-haspopup="menu" title="' + MORE_TIP + '">&middot;&middot;&middot;</button>' : '') + '<button type="button" class="ib x" aria-label="Close" title="Close this panel. The card stays as it is; Escape closes the front panel too.">&#10005;</button>';
+    head.querySelector('.ib.x').addEventListener('click', () => closePanel(t.id));
+    const more = head.querySelector('.menu-btn'); if (more) more.addEventListener('click', (e) => { e.stopPropagation(); openMenu(more, t, p.el); });
+    body.textContent = '';
+    const askI = askInfo(t);
+    if (askI) body.appendChild(askBlock(t, askI, aDraft, aFocus));
+    const rest = document.createElement('div'); rest.style.display = 'contents';
+    rest.innerHTML = resultHtml(t) + (t.note ? '<div class="dnote">' + noteHtml(t.note) + '</div>' : '') +
+      briefHtml(t) + doneWhenHtml(t) +
+      sec('Evidence', evidencePills(t, 0) ? '<div class="evl">' + evidencePills(t, 0) + '</div>' : '') +
+      commentsHtml(t, live) + rollbackHtml(t) + activityHtml(t, p.actAll) +
+      (live ? '' : '<p class="readonly">Read only for you. Agents and Owner update this board.</p>');
+    while (rest.firstChild) body.appendChild(rest.firstChild);
+    const cIn2 = q('.dCmtIn'); if (cIn2 && cDraft) { cIn2.value = cDraft; if (cFocus) { cIn2.focus(); cIn2.setSelectionRange(cDraft.length, cDraft.length); } }
+    body.scrollTop = top;
+    q('.drail').innerHTML = railHtml(t, live);
+    const skIn2 = q('.dSkillIn'); if (skIn2 && skDraft) { skIn2.value = skDraft; if (skFocus) skIn2.focus(); }
+  }
+  function addSkill(el) {
+    const t = taskOfEl(el); const inp = el.closest('.detail').querySelector('.dSkillIn'); if (!t || !inp) return;
+    const name = cleanSkill(inp.value); if (!name) return;
+    inp.value = '';
+    const uniq = (l) => [...new Set(l)];
+    write(t.id, { skillsRequired: uniq([...arr(t.skillsRequired).map(String), name]), skillsManual: uniq([...arr(t.skillsManual).map(String), name]) }, 'skill added by board: ' + name);
+  }
+  function removeSkill(t, name) {
+    if (!t || !name) return;
+    const keep = requiredSkillsFor(t.workType);
+    write(t.id, {
+      skillsRequired: arr(t.skillsRequired).map(String).filter((n) => n !== name || keep.includes(n)),
+      skillsManual: arr(t.skillsManual).map(String).filter((n) => n !== name),
+    }, 'skill removed by board: ' + name);
+  }
+  // A comment is its own small write: no history line (the board logs it), and the server stamps who and when.
+  async function postComment(el) {
+    const t0 = taskOfEl(el); const box = el.closest('.detail'); const inp = box && box.querySelector('.dCmtIn'); if (!t0 || !inp) return;
+    const text = inp.value.trim(); if (!text) return;
+    const btn = box.querySelector('[data-cmt]'); if (btn) btn.disabled = true;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const t = tasks.find((x) => x.id === t0.id); if (!t) return;
+      try {
+        await api('PATCH', '/tasks/' + encodeURIComponent(t.id), { data: { comments: [...arr(t.comments), { text }] }, ifVersion: t.version });
+        inp.value = ''; await reloadOne(t.id); afterWrite(); return;
+      } catch (e) {
+        if (e.status === 409 && attempt === 0 && await reloadOne(t.id)) continue;
+        if (e.status === 403) markReadOnly(); else $('sync').textContent = (e.status === 422 || e.status === 400) && e.message ? e.message : 'comment not saved, try again';
+        if (btn) btn.disabled = false; return;
+      }
+    }
+  }
+  $('panels').addEventListener('click', (ev) => {
+    const t = taskOfEl(ev.target); if (!t || !ev.target.closest) return;
+    const rm = ev.target.closest('[data-rmskill]'); if (rm) { removeSkill(t, rm.dataset.rmskill); return; }
+    if (ev.target.closest('[data-addskill]')) { addSkill(ev.target); return; }
+    if (ev.target.closest('[data-cmt]')) { postComment(ev.target); return; }
+    if (ev.target.closest('[data-actmore]')) { const p = panelOf(t.id); if (p) { p.actAll = true; renderPanel(p); } return; }
+    if (ev.target.closest('[data-rollback]')) rollbackCard(t);
+  });
+  // Typing @ in a comment offers the names (): arrows move, Enter or Tab picks, Escape closes.
+  const MENTION_HINT = {};
+  function mentionAt(inp) {
+    const before = inp.value.slice(0, inp.selectionStart);
+    const m = before.match(/(?:^|[^\w@.])@(\w*)$/);
+    return m ? { q: m[1].toLowerCase(), start: before.length - m[1].length - 1, end: inp.selectionStart } : null;
+  }
+  function mentionPicker(inp) { return inp.parentNode && inp.parentNode.querySelector('.mpick'); }
+  function showMentions(inp) {
+    const box = mentionPicker(inp); if (!box) return;
+    const at = mentionAt(inp);
+    const names = at ? MENTIONS.filter((n) => n.startsWith(at.q) && n !== at.q) : [];
+    if (!names.length) { box.hidden = true; box.innerHTML = ''; return; }
+    const on = Math.min(Number(box.dataset.on || 0), names.length - 1);
+    box.dataset.on = String(on);
+    box.innerHTML = names.map((n, i) => '<button type="button" role="option" data-mpick="' + n + '" class="' + (i === on ? 'on' : '') + '" aria-selected="' + (i === on) + '"><b>@' + n + '</b><span class="hint">' + esc(personName(n)) + ', ' + esc(MENTION_HINT[n] || '') + '</span></button>').join('');
+    box.hidden = false;
+  }
+  function pickMention(inp, name) {
+    const at = mentionAt(inp); if (!at) return;
+    const v = inp.value; const rest = v.slice(at.end).replace(/^\w*/, '');
+    inp.value = v.slice(0, at.start) + '@' + name + ' ' + rest.replace(/^ /, '');
+    const caret = at.start + name.length + 2;
+    inp.focus(); inp.setSelectionRange(caret, caret);
+    const box = mentionPicker(inp); if (box) { box.hidden = true; box.innerHTML = ''; box.dataset.on = '0'; }
+  }
+  $('panels').addEventListener('input', (ev) => {
+    if (ev.target && ev.target.classList && ev.target.classList.contains('dCmtIn')) { const b = mentionPicker(ev.target); if (b) b.dataset.on = '0'; showMentions(ev.target); }
+  });
+  $('panels').addEventListener('mousedown', (ev) => {
+    const b = ev.target.closest && ev.target.closest('[data-mpick]'); if (!b) return;
+    ev.preventDefault();
+    const inp = b.closest('.cmtadd').querySelector('.dCmtIn'); if (inp) pickMention(inp, b.dataset.mpick);
+  });
+  $('panels').addEventListener('focusout', (ev) => {
+    if (ev.target && ev.target.classList && ev.target.classList.contains('dCmtIn')) { const b = mentionPicker(ev.target); if (b) { b.hidden = true; b.innerHTML = ''; } }
+  });
+  $('panels').addEventListener('keydown', (ev) => {
+    const box = ev.target && ev.target.classList && ev.target.classList.contains('dCmtIn') ? mentionPicker(ev.target) : null;
+    if (box && !box.hidden && !ev.ctrlKey && !ev.metaKey) {
+      const opts = [...box.querySelectorAll('[data-mpick]')];
+      const on = Number(box.dataset.on || 0);
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); box.dataset.on = String((on + (ev.key === 'ArrowDown' ? 1 : opts.length - 1)) % opts.length); showMentions(ev.target); return; }
+      if ((ev.key === 'Enter' || ev.key === 'Tab') && opts[on]) { ev.preventDefault(); pickMention(ev.target, opts[on].dataset.mpick); return; }
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); box.hidden = true; box.innerHTML = ''; return; }
+    }
+    if (ev.key === 'Enter' && ev.target && ev.target.classList && ev.target.classList.contains('dSkillIn')) { ev.preventDefault(); addSkill(ev.target); }
+    if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.target && ev.target.classList && ev.target.classList.contains('dCmtIn')) { ev.preventDefault(); postComment(ev.target); }
+  });
+  // The rail's editable fields: owner, status and priority each write one patch.
+  $('panels').addEventListener('change', (ev) => {
+    const t = taskOfEl(ev.target); if (!t || !ev.target || !ev.target.matches) return;
+    const v = ev.target.value;
+    if (ev.target.matches('[data-owner]')) { write(t.id, { owner: v }, 'owner ' + ARROW + ' ' + v); return; }
+    if (ev.target.matches('[data-prio]')) { write(t.id, { priority: prioNum(v) }, 'priority ' + ARROW + ' ' + v.toLowerCase()); return; }
+    if (ev.target.matches('[data-status]')) {
+      if (v === 'customer') { write(t.id, { waitingOn: 'customer', status: 'waiting', needsOwner: false }, 'waiting on customer'); return; }
+      const patch = { status: v };
+      if (isCust(t)) patch.waitingOn = '';
+      if (v === 'approval') patch.needsOwner = true;
+      if (v === 'done') { patch.needsOwner = false; patch.ask = null; }
+      write(t.id, patch, (isCust(t) ? 'customer replied, ' : '') + 'status ' + ARROW + ' ' + (LABEL[v] || v));
+    }
+  });
+
+  let delTarget = null;
+  function askDelete(t) {
+    delTarget = t.id;
+    $('confirmDelMsg').textContent = 'Delete ' + (t.key ? t.key + ': ' : '') + (t.title || 'this card') + '? This cannot be undone.';
+    $('delYes').disabled = false;
+    $('confirmDel').showModal();
+  }
+  $('delNo').addEventListener('click', () => { delTarget = null; $('confirmDel').close(); });
+  $('delYes').addEventListener('click', async () => {
+    const id = delTarget; if (!id || !db) return;
+    $('delYes').disabled = true;
+    try {
+      await deleteTask(id);
+      closePanel(id);
+      delTarget = null; $('confirmDel').close();
+    } catch (e) {
+      $('delYes').disabled = false; $('confirmDel').close(); delTarget = null;
+      $('sync').textContent = 'delete failed, try again';
+    }
+  });
+
+  // ---- API layer
+  function actor() { return me.principal || 'board'; }
+  async function api(method, path, body, signal) {
+    const opt = { method, credentials: 'include', cache: 'no-store', headers: {} };
+    if (signal) opt.signal = signal;
+    if (body !== undefined) { opt.headers['content-type'] = 'application/json'; opt.body = JSON.stringify(body); }
+    const r = await fetch(BOARD_API + path, opt);
+    let j = null; try { j = await r.json(); } catch {}
+    if (r.status === 401 && path !== '/login') showLogin();
+    if (!r.ok) { const e = new Error((j && j.error) || ('http ' + r.status)); e.status = r.status; e.body = j; throw e; }
+    return j;
+  }
+  function toTask(d) { return { ...d.data, id: d.id, version: d.version }; }
+  function toBoard(d) { return { ...d.data, id: d.id, version: d.version }; }
+  let holdSyncUntil = 0; // a Sync result stays on the line for a while before the live count returns
+  function setSync(ok) {
+    if (Date.now() < holdSyncUntil) return;
+    $('sync').textContent = ok ? 'live, ' + tasks.filter((t) => t.status !== 'done').length + ' open' : (healthDown ? 'Board service unreachable' : 'offline, retrying');
+  }
+  function markReadOnly() { canWrite = false; $('ro').hidden = false; $('add').hidden = true; setGenAvailable(false); }
+  async function refresh() {
+    const mark = epoch;
+    try {
+      const [b, t] = await Promise.all([api('GET', '/boards'), api('GET', '/tasks')]);
+      if (mark !== epoch) return refresh(); // a write landed while this read was in flight
+      const bl = b.boards.map(toBoard);
+      boards = bl.some((x) => x.id === 'main') ? bl : [{ id: 'main', name: 'Main', order: 0 }, ...bl];
+      boardsLoaded = true;
+      tasks = t.tasks.map(toTask);
+      healthDown = false; setSync(true);
+      const sig = JSON.stringify([boards.map((x) => [x.id, x.version]), tasks.map((x) => [x.id, x.version])]);
+      if (sig !== lastSig) { lastSig = sig; render(); }
+      return true;
+    } catch (e) { setSync(false); return false; }
+  }
+  async function reloadOne(id) {
+    try { const d = await api('GET', '/tasks/' + encodeURIComponent(id)); const nt = toTask(d); const i = tasks.findIndex((x) => x.id === id); if (i >= 0) tasks[i] = nt; else tasks.push(nt); return nt; }
+    catch (e) { if (e.status === 404) { tasks = tasks.filter((x) => x.id !== id); } return null; }
+  }
+  function afterWrite() { epoch++; lastSig = ''; render(); refresh(); }
+  // Every write is one PATCH with ifVersion and one appended history line. A 409 refetches the card and retries once.
+  async function write(id, patch, what) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const t = tasks.find((x) => x.id === id); if (!t) return false;
+      const now = new Date().toISOString();
+      const history = [...arr(t.history), { at: now, by: actor(), what: what || 'updated' }].slice(-200);
+      try {
+        await api('PATCH', '/tasks/' + encodeURIComponent(id), { data: { ...patch, history, updated: now, updatedBy: actor() }, ifVersion: t.version });
+        await reloadOne(id); afterWrite(); return true;
+      } catch (e) {
+        if (e.status === 409 && attempt === 0) { if (await reloadOne(id)) continue; }
+        // A Start-claim refusal is a card state conflict, not lost board access.
+        if (e.status === 403 && patch.nudgedAt && patch.pokedAt === '' && /Start claim/.test(e.message)) {
+          holdSyncUntil = Date.now() + 10000; $('sync').textContent = START_AGAIN_TIP;
+        } else if (e.status === 403) markReadOnly();
+        else if (e.status === 422 && e.message) { holdSyncUntil = Date.now() + 10000; $('sync').textContent = e.message; }
+        else $('sync').textContent = 'save failed, try again';
+        render(); return false;
+      }
+    }
+    return false;
+  }
+  async function deleteTask(id) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const t = tasks.find((x) => x.id === id); if (!t) return;
+      try { await api('DELETE', '/tasks/' + encodeURIComponent(id) + '?ifVersion=' + t.version); tasks = tasks.filter((x) => x.id !== id); afterWrite(); return; }
+      catch (e) { if (e.status === 409 && attempt === 0 && await reloadOne(id)) continue; throw e; }
+    }
+  }
+
+  // ---- Bell and drawer: every card across every board that needs Owner, grouped by kind.
+  function needSet() {
+    // Most urgent first inside each group: the lower priority number wins (Urgent 50, Normal 100, Low 150), then the one that has waited longest.
+    const byUrgency = (x, y) => (Number(x.priority ?? 100) - Number(y.priority ?? 100)) || String((x.ask && x.ask.at) || x.updated || '').localeCompare(String((y.ask && y.ask.at) || y.updated || ''));
+    const cmp = (typeof SORTS !== 'undefined' && SORTS[drawerSort]) || byUrgency;
+    return tasks.filter((t) => t.status !== 'done' && (needsOwner(t) || t.status === 'approval' || staleHours(t))).sort(cmp);
+  }
+  const STALE_HOURS = 6;
+  function staleHours(t) {
+    if ((t.status || 'todo') !== 'doing') return 0;
+    const h = Array.isArray(t.history) ? t.history : []; const last = h.length ? String(h[h.length - 1].at || '') : '';
+    const at = Date.parse(last > String(t.updated || '') ? last : String(t.updated || '')); if (!at) return 0;
+    const hours = (Date.now() - at) / 3600000; return hours >= STALE_HOURS ? Math.floor(hours) : 0;
+  }
+  const GROUPS = [['merge', 'Merges'], ['go', 'Production go'], ['ask', 'Questions and decisions'], ['other', 'Everything else flagged'], ['stale', 'Gone quiet']];
+  function groupOf(t) {
+    const a = askInfo(t); const k = a && a.kind;
+    if (!a && !t.needsOwner && t.status !== 'approval' && staleHours(t)) return 'stale';
+    return k === 'merge' ? 'merge' : k === 'go' ? 'go' : (k === 'answer' || k === 'decide') ? 'ask' : 'other';
+  }
+  function firstSentence(s) {
+    const x = String(s || '').replace(/\s+/g, ' ').trim(); const m = x.match(/^.*?[.!?](?=\s|$)/);
+    return (m ? m[0] : x).slice(0, 220);
+  }
+  function reasonOf(t) {
+    const a = askInfo(t);
+    if (a && a.text && a.text !== a.label) return a.text;
+    const st = staleHours(t);
+    if (st && !a && !t.needsOwner) return 'In progress with nothing written for ' + st + ' h. ' + (firstSentence(t.note) || '');
+    return firstSentence(t.note) || (a ? a.text : '');
+  }
+  let drawerOpen = false;
+  let drawerSort = 'urgent';
+  try { drawerSort = localStorage.getItem('board.drawerSort') || 'urgent'; } catch {}
+  const SORTS = {
+    urgent: (x, y) => (Number(x.priority ?? 100) - Number(y.priority ?? 100)) || String((x.ask && x.ask.at) || x.updated || '').localeCompare(String((y.ask && y.ask.at) || y.updated || '')),
+    newest: (x, y) => String(y.updated || '').localeCompare(String(x.updated || '')),
+    oldest: (x, y) => String((x.ask && x.ask.at) || x.updated || '').localeCompare(String((y.ask && y.ask.at) || y.updated || '')),
+    board: (x, y) => boardName(x.board).localeCompare(boardName(y.board)) || (Number(x.priority ?? 100) - Number(y.priority ?? 100)),
+  };
+  SORTS.flat = SORTS.urgent;
+  function drawerRow(t) {
+    const row = document.createElement('div'); row.className = 'drow';
+    const txt = document.createElement('div'); txt.className = 'dtxt'; txt.tabIndex = 0; txt.setAttribute('role', 'button'); txt.title = 'Open this card in a panel, switching to its tab if needed.';
+    const why = reasonOf(t);
+    txt.innerHTML = '<div class="dtop">' + (t.key ? '<span class="key">' + esc(t.key) + '</span>' : '') + '<span class="dbd">' + esc(boardName(t.board)) + '</span>' + (fromCaption(t) ? '<span class="dfrom">' + esc(fromCaption(t)) + '</span>' : '') + '</div><div class="dt">' + esc(t.title) + '</div>' + (why ? '<div class="dwhy">' + esc(why) + '</div>' : '');
+    const open = () => { closeDrawer(false); if (t.board && !onTab(t)) { current = t.board; rememberTab(); render(); } openDetail(t.id); };
+    txt.addEventListener('click', open);
+    txt.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    row.appendChild(txt);
+    const a = askInfo(t);
+    if (a && !toAgent(t) && canWrite !== false && db && isOwner()) row.appendChild(askButtons(t, a));
+    return row;
+  }
+  function renderBell() {
+    const list = needSet(); const n = list.length;
+    const bell = $('bell'); bell.classList.toggle('lit', n > 0);
+    const badge = $('bellN'); badge.hidden = !n; badge.textContent = n > 99 ? '99+' : String(n);
+    bell.setAttribute('aria-label', n ? 'Needs you, ' + n : 'Needs you, none');
+    if (!drawerOpen || drawerTab !== 'need') return;
+    const box = $('drawerList'); const keep = box.scrollTop; box.textContent = '';
+    if (!n) { const e = document.createElement('div'); e.className = 'dnone'; e.textContent = 'Nothing needs you.'; box.appendChild(e); return; }
+    let groups;
+    if (drawerSort === 'flat') groups = [['all', 'Needs you', list]];
+    else if (drawerSort === 'board') { const ids = [...new Set(list.map((t) => t.board))]; groups = ids.map((id) => [id, boardName(id), list.filter((t) => t.board === id)]); }
+    else groups = GROUPS.map(([g, name]) => [g, name, list.filter((t) => groupOf(t) === g)]);
+    for (const [, name, items] of groups) {
+      if (!items.length) continue;
+      const h = document.createElement('h3'); h.textContent = name + ' (' + items.length + ')'; if (name === 'Gone quiet') h.className = 'quiet'; box.appendChild(h);
+      for (const t of items) box.appendChild(drawerRow(t));
+    }
+    box.scrollTop = keep;
+  }
+  // ---- Activity tab: the service log (every write, who did it), newest first. 'Since you last looked'
+  // is the time the Activity tab was last closed on this browser.
+  let drawerTab = 'need';
+  let activity = []; let activityAt = 0; let activityBusy = false;
+  let lastLook = ''; try { lastLook = localStorage.getItem('board.lastLook') || ''; } catch {}
+  function setDrawerTab(tab) {
+    drawerTab = tab;
+    $('dtabNeed').setAttribute('aria-selected', String(tab === 'need')); $('dtabAct').setAttribute('aria-selected', String(tab === 'act'));
+    $('drawerTitle').textContent = tab === 'need' ? 'Needs you' : 'Activity';
+    $('drawerSort').hidden = tab !== 'need';
+    if (tab === 'act') loadActivity(true); else renderBell();
+  }
+  async function loadActivity(force) {
+    if (activityBusy) return; if (!force && Date.now() - activityAt < 20000) { renderActivity(); return; }
+    activityBusy = true;
+    try { const r = await api('GET', '/activity?limit=150'); activity = Array.isArray(r.entries) ? r.entries : []; activityAt = Date.now(); }
+    catch { activity = activity || []; }
+    activityBusy = false; renderActivity();
+  }
+  function whoName(w) { return FROM_NAMES[w] || w || ''; }
+  function renderActivity() {
+    const newN = lastLook ? activity.filter((a) => String(a.at) > lastLook).length : activity.length;
+    const badge = $('actN'); badge.hidden = !newN; badge.textContent = newN > 99 ? '99+' : String(newN);
+    if (!drawerOpen || drawerTab !== 'act') return;
+    const box = $('drawerList'); box.textContent = '';
+    const since = document.createElement('div'); since.className = 'asince';
+    since.textContent = lastLook ? (newN + ' new since you last looked (' + fmt(lastLook) + ')') : 'First look: everything is new.';
+    box.appendChild(since);
+    if (!activity.length) { const e = document.createElement('div'); e.className = 'dnone'; e.textContent = activityBusy ? 'Loading.' : 'No activity yet.'; box.appendChild(e); return; }
+    for (const a of activity) {
+      const row = document.createElement('div'); row.className = 'arow' + (lastLook && String(a.at) > lastLook ? ' new' : ''); row.tabIndex = 0; row.setAttribute('role', 'button'); row.title = a.taskId ? 'Open the card this change belongs to.' : 'This change has no card to open.';
+      row.innerHTML = '<div class="atop"><span class="awho">' + esc(whoName(a.who)) + '</span>' + (a.key ? '<span class="key">' + esc(a.key) + '</span>' : '') + (a.board ? '<span>' + esc(boardName(a.board)) + '</span>' : '') + '<span>' + esc(fmt(a.at)) + '</span></div><div class="awhat">' + esc(a.what) + '</div>';
+      const open = () => { if (!a.taskId) return; const t = tasks.find((x) => x.id === a.taskId); if (!t) return; closeDrawer(false); if (t.board && !onTab(t)) { current = t.board; rememberTab(); render(); } openDetail(t.id); };
+      row.addEventListener('click', open);
+      row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      box.appendChild(row);
+    }
+  }
+  function markLooked() { lastLook = new Date().toISOString(); try { localStorage.setItem('board.lastLook', lastLook); } catch {} renderActivity(); }
+  $('dtabNeed').addEventListener('click', () => setDrawerTab('need'));
+  $('dtabAct').addEventListener('click', () => setDrawerTab('act'));
+  function openDrawer() { drawerOpen = true; $('dback').hidden = false; $('drawer').classList.add('open'); $('bell').setAttribute('aria-expanded', 'true'); setDrawerTab(drawerTab); $('drawerX').focus(); }
+  function closeDrawer(refocus) {
+    if (!drawerOpen) return; if (drawerTab === 'act') markLooked(); drawerOpen = false; $('dback').hidden = true; $('drawer').classList.remove('open'); $('bell').setAttribute('aria-expanded', 'false');
+    if (refocus !== false) $('bell').focus();
+  }
+  $('bell').addEventListener('click', () => { if (drawerOpen) closeDrawer(); else openDrawer(); });
+  // Sync (): the fallback when a thread or workflow missed an update. GitHub is the one
+  // source the board can read; the result lands in the sync line and on each changed card's history.
+  $('syncBtn').addEventListener('click', async () => {
+    const b = $('syncBtn'); if (b.disabled) return; b.disabled = true; $('sync').textContent = 'Syncing with GitHub';
+    try {
+      const r = await api('POST', '/sync', {});
+      const n = r.changed.length; const bad = r.unreadable.length;
+      $('sync').textContent = 'Synced: ' + r.checked + ' checked, ' + n + ' changed' + (bad ? ', ' + bad + ' unreadable' : '') + (n ? ': ' + r.changed.map((c) => c.key).join(', ') : '');
+      holdSyncUntil = Date.now() + 20000;
+      if (n) afterWrite(); else refresh();
+    } catch (e) { $('sync').textContent = 'Sync failed: ' + (e && e.message ? e.message : 'unknown'); }
+    b.disabled = false;
+  });
+  $('drawerX').addEventListener('click', () => closeDrawer());
+  $('drawerSort').value = drawerSort;
+  $('who').addEventListener('change', () => { who = $('who').value; try { localStorage.setItem('board.who', who); } catch {} render(); });
+  $('drawerSort').addEventListener('change', () => { drawerSort = $('drawerSort').value; try { localStorage.setItem('board.drawerSort', drawerSort); } catch {} renderBell(); });
+  $('dback').addEventListener('click', () => closeDrawer());
+  // Escape, in order: the menu (handled above, capture), a confirm dialog (native), the drawer, then the frontmost panel.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || menuEl || document.querySelector('dialog[open]')) return;
+    if (drawerOpen) { closeDrawer(); return; }
+    const f = frontPanel(); if (f) closePanel(f.id);
+  });
+
+  // ---- Flow view (): the same cards drawn as branches off each board's main line. Six stage
+  // columns; one lane per board; main is grey with a green fill as far as the lane's work has reached. Every
+  // position is computed from the stage and the row, never hand placed, and it re-renders on every poll.
+  const FLOW_STAGES = ['Backlog', 'Design', 'Build', 'Review', 'Merge', 'Production'];
+  const FLOW = { gutter: 160, minCol: 213, laneH: 360, rowH: 120, mainY: 180, cardW: 220, lead: 110, headH: 28, rowsY: [84, 300] };
+  let view = 'board';
+  try { view = localStorage.getItem('board.view') === 'flow' ? 'flow' : 'board'; } catch {}
+  let flowZoom = 1;
+  function setView(v) {
+    view = v === 'flow' ? 'flow' : 'board';
+    try { localStorage.setItem('board.view', view); } catch {}
+    for (const b of document.querySelectorAll('#viewTog button')) { const on = b.dataset.view === view; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', String(on)); }
+    $('lanes').hidden = view === 'flow'; $('doneBox').hidden = view === 'flow' || $('doneBox').hidden;
+    $('flow').hidden = view !== 'flow';
+    render();
+  }
+  function flowRowY(row) { return row < 2 ? FLOW.rowsY[row] : FLOW.rowsY[1] + FLOW.rowH * (row - 1); }
+  function isMerged(t) { return t.status === 'done' && !!ev(t).pr; }
+  function isDeployed(t) { const e = ev(t); return !!(e.deployId || e.liveUrl); }
+  // Which column a card sits on. Waiting and blocked cards keep their last known stage: review once there is a pull request.
+  function flowStage(t) {
+    if (t.status === 'done') return isDeployed(t) ? 5 : isMerged(t) ? 4 : -1;
+    if (t.status === 'todo') return 0;
+    if (t.status === 'design') return 1;
+    if (t.status === 'doing') return 2;
+    if (t.status === 'review' || t.status === 'approval') return 3;
+    return ev(t).pr ? 3 : 2;
+  }
+  function daysSince(iso) { const d = Date.parse(iso || ''); return d ? Math.max(0, Math.floor((Date.now() - d) / 86400000)) : 0; }
+  function hoursSinceTouch(t) {
+    const h = arr(t.history); const last = h.length ? String((h[h.length - 1] || {}).at || '') : '';
+    const at = Date.parse(last > String(t.updated || '') ? last : String(t.updated || '')); return at ? (Date.now() - at) / 3600000 : 0;
+  }
+  function isStale(t) { return t.status !== 'done' && (!!t.hold || hoursSinceTouch(t) >= 72); }
+  function flowCardHtml(t, stage) {
+    const askI = askInfo(t); const need = needsOwner(t); const merged = isMerged(t); const dc = steps(t);
+    let state;
+    if (need) state = '<span class="st need-lbl" title="Needs you: this card is waiting on a decision only you can make.">Needs you</span>';
+    else if (merged) state = '<span class="st" title="Merged into main.">Merged ' + esc(age(t.updated)) + '</span>';
+    else if (t.hold) state = '<span class="st" title="Paused: the agents leave this card alone until you resume it from the menu.">Paused ' + daysSince(t.stopRequested || t.updated) + ' d</span>';
+    else if (isRunning(t)) state = '<span class="st run-lbl" title="A cloud run is working on this card now.">Agents working</span>';
+    else state = '<span class="st" title="The stage this card is at.">' + FLOW_STAGES[Math.max(0, stage)] + '</span>';
+    let extra = '';
+    if (merged) extra = '<div class="xl">Rejoining main</div>';
+    else if (need && askI) extra = '<div class="xl" title="' + esc(askI.text) + '">' + esc(askI.text) + '</div>';
+    else if (t.status === 'design') extra = '<div class="xl">' + (safeUrl(ev(t).design) ? '<a href="' + esc(safeUrl(ev(t).design)) + '" target="_blank" rel="noopener" title="Open the design canvas in a new tab. Comment there; the agent revises until you approve.">Canvas</a> <span>\u00b7 waiting on your comments</span>' : '<span>Canvas not published yet</span>') + '</div>';
+    else if (t.status === 'doing' && dc.length) extra = '<div class="bar' + (isRunning(t) ? ' live' : '') + '" title="' + dc.filter((c) => c.done).length + ' of ' + dc.length + ' done criteria met."><div style="width:' + Math.round(100 * dc.filter((c) => c.done).length / dc.length) + '%"></div></div>';
+    else if (isStale(t)) extra = '<div class="xl">Branch is going stale</div>';
+    return '<div class="hd">' + (isUrgent(t) ? '<span class="dot" title="Urgent: do this before the normal ones."></span>' : '') + '<span class="key">' + esc(t.key || '') + '</span>' + prPill(t) + state + '</div>' +
+      '<div class="t">' + esc(t.title) + '</div>' + extra;
+  }
+  function renderFlow(mine) {
+    const vp = $('flowVp'); const inner = $('flowIn'); inner.textContent = '';
+    const colW = Math.max(FLOW.minCol, Math.floor((vp.clientWidth - FLOW.gutter) / 6));
+    const cx = (i) => colW * (i + 0.5); // relative to the lane svg origin at x = gutter
+    const W = FLOW.gutter + colW * 6;
+    // Stage headers and the faint column lines.
+    let y = 0;
+    const head = document.createElement('div'); head.className = 'fhead'; head.style.left = FLOW.gutter + 'px'; head.style.width = (colW * 6) + 'px';
+    head.innerHTML = FLOW_STAGES.map((s) => '<span>' + s.toUpperCase() + '</span>').join('');
+    inner.appendChild(head);
+    y = FLOW.headH;
+    const laneIds = current === ALL ? [...new Set(mine.filter((t) => t.status !== 'done' || isMerged(t)).map((t) => t.board))] : [current];
+    const ordered = [...boards].sort((a, b) => (a.order ?? 99) - (b.order ?? 99)).map((b) => b.id).filter((id) => laneIds.includes(id));
+    for (const id of laneIds) if (!ordered.includes(id)) ordered.push(id);
+    const today = Date.now();
+    for (const id of ordered) {
+      const all = mine.filter((t) => t.board === id);
+      const open = all.filter((t) => t.status !== 'done' && t.status !== 'todo').map((t) => ({ t, stage: flowStage(t) })).sort((a, b) => a.stage - b.stage || String(a.t.key).localeCompare(String(b.t.key)));
+      const merged = all.filter(isMerged).sort(byUpdated);
+      const recent = merged.find((t) => today - Date.parse(t.updated || '') < 86400000) || null;
+      const deployed = all.some(isDeployed);
+      let reach = 0;
+      for (const t of all) reach = Math.max(reach, flowStage(t));
+      if (deployed) reach = 5;
+      // Rows: alternate above and below main in column order; a taken slot falls to the next row and the lane grows.
+      const used = new Set(); let maxRow = 1; const placed = [];
+      const take = (stage, pref) => { const order = [pref, 1 - pref]; for (let r = 2; r < 12; r++) order.push(r); for (const r of order) { const k = stage + ':' + r; if (!used.has(k)) { used.add(k); maxRow = Math.max(maxRow, r); return r; } } return 0; };
+      if (recent) { used.add('3:1'); used.add('4:1'); }
+      open.forEach((o, i) => { o.row = take(o.stage, i % 2); placed.push(o); });
+      const H = FLOW.laneH + FLOW.rowH * Math.max(0, maxRow - 1);
+      const lane = document.createElement('div'); lane.className = 'flane'; lane.style.top = y + 'px'; lane.style.height = H + 'px'; lane.style.width = W + 'px';
+      lane.innerHTML = '<div class="lname" style="top:' + (FLOW.mainY - 18) + 'px"><b>' + esc(boardName(id)) + '</b><span>main</span>' + [...new Map(Object.values(boardProjects(id)).filter((x) => x && x.name && safeUrl(x.url)).map((x) => [x.url, x])).values()].map(projectLink).join('') + '</div>';
+      let svg = '<svg aria-hidden="true" class="fsvg" style="left:' + FLOW.gutter + 'px;width:' + (colW * 6) + 'px;height:' + H + 'px" viewBox="0 0 ' + (colW * 6) + ' ' + H + '">';
+      svg += '<path d="M0 ' + FLOW.mainY + ' H' + cx(5) + '" stroke="var(--line)" stroke-width="4" stroke-linecap="round" fill="none"/>';
+      if (reach > 0) svg += '<path d="M0 ' + FLOW.mainY + ' H' + cx(reach) + '" stroke="var(--green)" stroke-width="4" stroke-linecap="round" fill="none"/>';
+      const curve = (leave, yy, right) => 'M' + leave + ' ' + FLOW.mainY + ' C' + (leave + 50) + ' ' + FLOW.mainY + ' ' + (leave + 50) + ' ' + yy + ' ' + (leave + 100) + ' ' + yy + ' H' + right;
+      const cards = [];
+      for (const o of placed) {
+        const yy = flowRowY(o.row); const left = cx(o.stage) - FLOW.cardW / 2; const leave = left - FLOW.lead;
+        const stale = isStale(o.t);
+        svg += '<path d="' + curve(leave, yy, left) + '" stroke="var(--accent)" stroke-width="2" fill="none"' + (stale ? ' stroke-dasharray="6 6" opacity="0.5"' : '') + '/>';
+        cards.push({ t: o.t, x: FLOW.gutter + left, y: yy, stage: o.stage, stale });
+      }
+      if (recent) {
+        const centre = cx(4) - colW / 2; const left = centre - FLOW.cardW / 2; const right = left + FLOW.cardW; const yy = flowRowY(1); const leave = left - FLOW.lead;
+        svg += '<path d="' + curve(leave, yy, right) + ' C' + (right + 25) + ' ' + yy + ' ' + (right + 25) + ' ' + FLOW.mainY + ' ' + cx(4) + ' ' + FLOW.mainY + '" stroke="var(--accent)" stroke-width="2" fill="none"/>';
+        cards.push({ t: recent, x: FLOW.gutter + left, y: yy, stage: 4, stale: false });
+      }
+      merged.forEach((t, i) => { const x = cx(4) + (i - (merged.length - 1) / 2) * 16; svg += '<circle cx="' + x + '" cy="' + FLOW.mainY + '" r="6" fill="var(--ink)"><title>' + esc(t.key + ' merged ' + age(t.updated) + ' ago') + '</title></circle>'; });
+      svg += deployed ? '<circle cx="' + cx(5) + '" cy="' + FLOW.mainY + '" r="9" fill="var(--green)" stroke="var(--bg)" stroke-width="2"><title>Production: deployed.</title></circle>'
+        : '<circle cx="' + cx(5) + '" cy="' + FLOW.mainY + '" r="9" fill="var(--bg)" stroke="var(--line)" stroke-width="3"><title>Production: nothing deployed from this lane yet.</title></circle>';
+      svg += '</svg>';
+      lane.insertAdjacentHTML('beforeend', svg);
+      const cap = (x, text) => '<div class="fcap" style="left:' + (FLOW.gutter + x - 60) + 'px;top:' + (FLOW.mainY + 12) + 'px">' + text + '</div>';
+      if (merged.length) lane.insertAdjacentHTML('beforeend', cap(cx(4), merged.length === 1 ? esc(merged[0].key + ' merged ' + age(merged[0].updated)) : merged.length + ' merged'));
+      const dep = all.find(isDeployed);
+      if (dep) lane.insertAdjacentHTML('beforeend', cap(cx(5), 'Deployed ' + esc(String(ev(dep).deployId || '').slice(0, 7) || 'live')));
+      else if (all.some((t) => (t.kind || 'human') === 'production' && t.status !== 'done')) lane.insertAdjacentHTML('beforeend', cap(cx(5), 'Awaiting Owner\'s go'));
+      for (const c of cards) {
+        const el = document.createElement('div'); el.className = 'fcard' + (needsOwner(c.t) ? ' need' : '') + (c.stale ? ' stale' : '') + (isRunning(c.t) && !c.stale ? ' running' : '');
+        el.style.left = c.x + 'px'; el.style.top = c.y + 'px'; el.style.width = FLOW.cardW + 'px';
+        el.tabIndex = 0; el.setAttribute('role', 'button'); el.dataset.id = c.t.id; el.title = 'Open this card in a panel. Press Enter when it has focus.';
+        el.innerHTML = flowCardHtml(c.t, c.stage);
+        lane.appendChild(el);
+      }
+      inner.appendChild(lane);
+      y += H;
+    }
+    if (!ordered.length) { const e = document.createElement('div'); e.className = 'fempty'; e.style.top = y + 'px'; e.style.left = FLOW.gutter + 'px'; e.textContent = 'Nothing in flight here.'; inner.appendChild(e); y += 60; }
+    // Backlog: cards not on a branch yet.
+    const todo = mine.filter((t) => t.status === 'todo').sort((a, b) => isStarting(b) - isStarting(a) || byUpdated(a, b));
+    const bl = document.createElement('div'); bl.className = 'fbacklog'; bl.style.top = (y + 24) + 'px'; bl.style.left = FLOW.gutter + 'px'; bl.style.width = (colW * 6) + 'px';
+    bl.innerHTML = '<span class="lbl">Backlog, not started</span>' + todo.slice(0, 8).map((t) => '<button type="button" class="fpill' + (isStarting(t) ? ' running' : '') + '" data-id="' + esc(t.id) + '" title="' + (isStarting(t) ? 'Starting: its project picks it up within a few minutes. Open this card in a panel.' : 'Open this card in a panel. It is in To do and not on a branch yet.') + '">' + esc(t.key) + ' ' + esc(t.title) + '</button>').join('') + (todo.length > 8 ? '<span class="more" title="The rest are on the Board view under To do.">+ ' + (todo.length - 8) + ' more</span>' : '') + (!todo.length ? '<span class="more">nothing waiting</span>' : '');
+    inner.appendChild(bl);
+    y += 24 + 60;
+    const lines = document.createElement('div'); lines.className = 'flines'; lines.style.left = FLOW.gutter + 'px'; lines.style.top = (FLOW.headH - 8) + 'px'; lines.style.height = (y - FLOW.headH + 8) + 'px'; lines.style.width = (colW * 6) + 'px';
+    lines.innerHTML = [1, 2, 3, 4, 5].map((i) => '<span style="left:' + (colW * i) + 'px"></span>').join('');
+    inner.insertBefore(lines, inner.firstChild);
+    inner.style.width = W + 'px'; inner.style.height = y + 'px';
+    inner.style.transform = 'scale(' + flowZoom + ')';
+    $('flowSize').style.width = Math.round(W * flowZoom) + 'px'; $('flowSize').style.height = Math.round(y * flowZoom) + 'px';
+  }
+  // Pan by dragging empty space, zoom with the wheel around the pointer, double click resets. Cards never move.
+  (function flowControls() {
+    const vp = $('flowVp'); let pan = null;
+    const isCard = (n) => n && n.closest && n.closest('.fcard, .fpill, a, button');
+    vp.addEventListener('pointerdown', (e) => { if (e.button !== 0 || isCard(e.target)) return; pan = { x: e.clientX, y: e.clientY, sl: vp.scrollLeft, st: vp.scrollTop }; vp.classList.add('panning'); try { vp.setPointerCapture(e.pointerId); } catch {} });
+    vp.addEventListener('pointermove', (e) => { if (!pan) return; vp.scrollLeft = pan.sl - (e.clientX - pan.x); vp.scrollTop = pan.st - (e.clientY - pan.y); });
+    const end = () => { pan = null; vp.classList.remove('panning'); };
+    vp.addEventListener('pointerup', end); vp.addEventListener('pointercancel', end);
+    vp.addEventListener('wheel', (e) => {
+      if (view !== 'flow') return; e.preventDefault();
+      const r = vp.getBoundingClientRect(); const mx = e.clientX - r.left + vp.scrollLeft; const my = e.clientY - r.top + vp.scrollTop;
+      const z1 = flowZoom; const z2 = Math.min(2, Math.max(0.5, z1 * (e.deltaY < 0 ? 1.1 : 1 / 1.1))); if (z2 === z1) return;
+      flowZoom = z2; $('flowIn').style.transform = 'scale(' + z2 + ')';
+      const inner = $('flowIn'); $('flowSize').style.width = Math.round(parseFloat(inner.style.width) * z2) + 'px'; $('flowSize').style.height = Math.round(parseFloat(inner.style.height) * z2) + 'px';
+      vp.scrollLeft = mx * (z2 / z1) - (e.clientX - r.left); vp.scrollTop = my * (z2 / z1) - (e.clientY - r.top);
+    }, { passive: false });
+    vp.addEventListener('dblclick', (e) => { if (isCard(e.target)) return; flowZoom = 1; vp.scrollLeft = 0; vp.scrollTop = 0; render(); });
+    vp.addEventListener('click', (e) => { const c = e.target.closest && e.target.closest('.fcard, .fpill'); if (!c || (e.target.closest && e.target.closest('a'))) return; openDetail(c.dataset.id); });
+    vp.addEventListener('keydown', (e) => { const c = e.target.closest && e.target.closest('.fcard'); if (c && e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(c.dataset.id); } });
+    for (const b of document.querySelectorAll('#viewTog button')) b.addEventListener('click', () => setView(b.dataset.view));
+    let rt = 0; window.addEventListener('resize', () => { if (view !== 'flow') return; clearTimeout(rt); rt = setTimeout(render, 150); });
+  })();
+
+  // Whose cards (): one owner at a time, remembered per viewer. Owner also sees every card that needs him.
+  let who = '';
+  try { who = localStorage.getItem('board.who') || ''; } catch {}
+  const whoMatch = (t) => !who || String(t.owner || '').toLowerCase() === who || (who === 'owner' && needsOwner(t));
+  function renderWho() {
+    const sel = $('who'); if (!sel) return;
+    const owners = [...new Set(tasks.map((t) => String(t.owner || '').toLowerCase()).filter(Boolean))];
+    if (!owners.includes('owner')) owners.push('owner');
+    owners.sort((a, b) => (a === 'owner' ? -1 : b === 'owner' ? 1 : personName(a).localeCompare(personName(b))));
+    if (who && !owners.includes(who)) owners.push(who);
+    const html = '<option value="">Everyone</option>' + owners.map((o) => '<option value="' + esc(o) + '">' + esc(personName(o)) + '</option>').join('');
+    if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; }
+    sel.value = who; sel.classList.toggle('on', !!who);
+  }
+  function render() {
+    if (menuEl && menuEl.dataset.tile === '1') closeMenu(); // a tile menu would be left floating over rebuilt tiles
+    renderTabs();
+    renderBell();
+    if (db) loadActivity(false);
+    const lanes = $('lanes'); lanes.textContent = '';
+    renderWho();
+    const mine = tasks.filter((t) => onTab(t) && matches(t) && whoMatch(t));
+    const showBoard = current === ALL;
+    const hint = $('qHint');
+    if (query) {
+      const elsewhere = tasks.filter((t) => !onTab(t) && matches(t));
+      const names = {}; for (const b of boards) names[b.id] = b.name;
+      const by = {}; for (const t of elsewhere) by[t.board] = (by[t.board] || 0) + 1;
+      const parts = Object.keys(by).map((id) => (names[id] || id) + ' ' + by[id]);
+      hint.textContent = mine.length + ' here' + (parts.length ? ', also on ' + parts.join(', ') : '');
+      hint.hidden = false;
+    } else hint.hidden = true;
+    const done = mine.filter((t) => t.status === 'done').sort(byUpdated).slice(0, 30);
+    if (view === 'flow') {
+      $('lanes').hidden = true; $('doneBox').hidden = true; $('flow').hidden = false;
+      renderFlow(mine);
+    } else {
+      $('lanes').hidden = false; $('flow').hidden = true;
+      for (const [key, name] of STATUS) {
+        const items = mine.filter((t) => t.status === key).sort(byUpdated);
+        const lane = document.createElement('div'); lane.className = 'lane'; lane.dataset.s = key;
+        lane.innerHTML = '<h2>' + esc(name) + '<span class="n">' + items.length + '</span></h2>';
+        if (!items.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Nothing here.'; lane.appendChild(e); }
+        else { const ul = document.createElement('ul'); for (const t of items) ul.appendChild(card(t, showBoard)); lane.appendChild(ul); }
+        lanes.appendChild(lane);
+      }
+      $('doneBox').hidden = !done.length;
+      $('doneCount').textContent = done.length ? '(' + done.length + ')' : '';
+      const dl = $('doneList'); dl.textContent = ''; for (const t of done) dl.appendChild(card(t, showBoard));
+    }
+    $('add').hidden = !(canWrite !== false && db);
+    $('newBtn').hidden = $('add').hidden;
+    if ($('add').hidden) { $('genPreview').hidden = true; closePanel(NEW_ID); }
+    renderPanels();
+  }
+
+  render();
+
+  $('q').addEventListener('input', () => { query = $('q').value.trim().toLowerCase(); render(); });
+  $('q').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { $('q').value = ''; query = ''; render(); return; }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const k = $('q').value.trim().toUpperCase();
+    const hit = tasks.find((t) => String(t.key || '').toUpperCase() === k);
+    if (!hit) return;
+    if (!onTab(hit)) { current = hit.board; rememberTab(); }
+    $('q').value = ''; query = ''; render(); openDetail(hit.id);
+  });
+
+  // Creating cards: shared by "Add as is" and the generator's "Save card".
+  function kindFields(kind) {
+    return { kind, lane: kind === 'human' ? '' : DEFAULT_LANE, owner: 'owner', needsOwner: kind === 'production' };
+  }
+  async function createTask(board, fields, what) {
+    const now = new Date().toISOString();
+    const id = 't-' + now.slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 8);
+    const prefix = (boards.find((b) => b.id === board) || {}).prefix || 'KIT';
+    let num = 0;
+    try { const c = await api('POST', '/counters/' + encodeURIComponent(prefix) + '/next'); num = Number(c.number) || 0; }
+    catch (e) { if (e.status === 403) { markReadOnly(); render(); genMsg('Could not save the card. Try again.'); return false; } num = 0; }
+    try {
+      await api('PUT', '/tasks/' + encodeURIComponent(id), { data: {
+        board, status: 'todo', note: '', link: '', waitingOn: '', priority: 100, attempts: 0, maxAttempts: 5, hold: false, dependsOn: [],
+        ...fields, key: num ? prefix + '-' + num : '', num, history: [{ at: now, by: actor(), what }], created: now, updated: now, updatedBy: actor(),
+      } });
+      await reloadOne(id); afterWrite();
+      return true;
+    } catch (e) {
+      if (e.status === 403) { markReadOnly(); render(); }
+      genMsg('Could not save the card. Try again.');
+      return false;
+    }
+  }
+  function genMsg(s) { $('genMsg').textContent = s || ''; }
+
+  $('add').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const title = $('genText').value.trim().split('\n')[0].trim().slice(0, 160); if (!title || !db) { if (!title) genMsg('Type the task first.'); return; }
+    $('addPlain').disabled = true;
+    const ok = await createTask(targetBoard(), { title, ...kindFields($('genKind').value) }, 'created');
+    $('addPlain').disabled = false;
+    if (ok) { $('genText').value = ''; genMsg('Added.'); }
+  });
+
+  // Generator: POST /api/v1/generate expands plain words into a full card on the Worker (Workers AI). Writers only.
+  let genCtl = null; let draft = null;
+  function setGenAvailable(on) {
+    $('genBtn').hidden = !on; $('genBtn').disabled = !on; if (!on) { $('genStop').hidden = true; $('genPreview').hidden = true; }
+  }
+  const DASHES = new RegExp('[ \t]*[' + String.fromCharCode(8212, 8211) + '][ \t]*', 'g');
+  function noDash(s) { return String(s ?? '').replace(DASHES, ', ').replace(/[ \t]+-[ \t]+/g, ', ').trim(); }
+  function normalize(out, text, kind) {
+    const o = out && typeof out === 'object' && !Array.isArray(out) ? out : {};
+    const s = (v, n) => noDash(typeof v === 'string' || typeof v === 'number' ? v : '').slice(0, n || 2000);
+    const list = (v, n, max) => arr(v).map((x) => s(x && typeof x === 'object' ? x.text || x.label || '' : x, n || 400)).filter(Boolean).slice(0, max || 20);
+    const b = o.brief && typeof o.brief === 'object' ? o.brief : {};
+    const roles = {};
+    const DEF = { coordinator: 'agent', builder: 'builder', reviewer: 'reviewer', deployer: 'deployer' };
+    for (const [k] of ROLES) {
+      const r = (o.roles || {})[k]; const name = typeof r === 'string' ? r : (r && r.name) || DEF[k];
+      roles[k] = { name: String(name || DEF[k]).toLowerCase().slice(0, 40), state: 'waiting', startedAt: '', finishedAt: '', notes: '' };
+    }
+    const pr = Number(o.priority);
+    const wtRaw = String(o.workType || '').trim();
+    const workType = Object.keys(SKILL_MAP).find((k) => k.toLowerCase() === wtRaw.toLowerCase()) || 'newPage';
+    return {
+      workType,
+      title: s(o.title, 160) || text.split('\n')[0].slice(0, 160),
+      brief: {
+        objective: s(b.objective, 800), spec: s(b.spec, 8000), scope: s(b.scope, 1500), outOfScope: s(b.outOfScope, 1500),
+        requirements: list(b.requirements, 400, 20),
+        files: arr(b.files).map((f) => String(f && typeof f === 'object' ? f.path || '' : f).trim().slice(0, 300)).filter(Boolean).slice(0, 30),
+        constraints: list(b.constraints, 400, 20),
+        context: arr(b.context).map((c) => (c && typeof c === 'object' ? { label: s(c.label, 200), url: safeUrl(c.url).slice(0, 500) } : { label: s(c, 200), url: safeUrl(c) })).filter((c) => c.label || c.url).slice(0, 10),
+      },
+      doneCriteria: list(o.doneCriteria, 300, 6).map((x) => ({ text: x, done: false, by: '', at: '' })),
+      testSteps: list(o.testSteps, 400, 15),
+      expected: s(o.expected, 800),
+      priority: Number.isFinite(pr) && pr > 0 ? snapPrio(pr) : 100,
+      roles,
+    };
+  }
+  function genError(e) {
+    if (e && e.name === 'AbortError') return 'Stopped.';
+    if (e && e.status === 429) return 'Too many requests right now. Try again in a minute.';
+    if (e && e.status === 403) return 'Only writers can generate cards.';
+    if (e && e.status === 413) return 'The description is too long. Shorten it and try again.';
+    if (e && e.status === 502) return 'The generator could not make a card from that. Reword the task and try again.';
+    return 'Generation failed. Try again.';
+  }
+  async function generate() {
+    const text = $('genText').value.trim(); if (!text) { genMsg('Type the task first.'); return; }
+    const kind = $('genKind').value; const board = targetBoard();
+    const prefix = (boards.find((b) => b.id === board) || {}).prefix || 'KIT';
+    genCtl = new AbortController();
+    $('genBtn').disabled = true; $('genStop').hidden = false; genMsg('Generating, this takes a few seconds...');
+    try {
+      const res = await api('POST', '/generate', { board, kind, text }, genCtl.signal); const out = res && res.card;
+      const nd = normalize(out, text, kind); const manual = namedSkills(text);
+      draft = { ...nd, skillsManual: manual, skillsRequired: requiredSkillsFor(nd.workType, manual), skillsUsed: [], ...kindFields(kind), board, status: 'todo' };
+      draft.note = draft.brief.objective.slice(0, 240);
+      renderPreview(); genMsg('');
+    } catch (e) {
+      genMsg(genError(e));
+    } finally {
+      genCtl = null; $('genStop').hidden = true; if (!$('genBtn').hidden) $('genBtn').disabled = false;
+    }
+  }
+  function renderPreview() {
+    const box = $('genPreview');
+    if (!draft) { box.hidden = true; box.textContent = ''; return; }
+    const prio = '<div><span class="rk">Priority</span><div class="rv">' + (isUrgent(draft) ? '<span class="dot" aria-hidden="true"></span>' : '') + prioWord(draft.priority) + '</div></div>';
+    box.innerHTML = '<div class="dhd">' + headHtml({ ...draft, key: 'NEW' }, '', true) + '</div>' +
+      '<div class="body">' + (draft.note ? '<div class="dnote">' + noteHtml(draft.note) + '</div>' : '') + briefHtml(draft) + doneWhenHtml(draft) + sec('Details', '<div class="rv avs" style="gap:24px;align-items:flex-start">' + prio + skillsHtml(draft, false, true) + '</div>') + '</div>' +
+      '<div class="acts"><button type="button" id="genSave" title="Save card: puts this card in To do on the ' + esc(boardName(draft.board)) + ' tab. Agent cards wait there until you press Start now.">Save card</button><button type="button" class="ghost" id="genDiscard" title="Discard: throws this draft away; nothing is saved.">Discard</button><span class="lbl">Saves to ' + esc(boardName(draft.board)) + '.</span></div>';
+    box.hidden = false;
+    $('genSave').addEventListener('click', async () => {
+      if (!draft) return; const d = draft; $('genSave').disabled = true;
+      const { board, status, note, ...rest } = d;
+      const ok = await createTask(board, {
+        ...rest, status, note,
+        gates: { reviewer: { verdict: '', notes: '', at: '' }, ownerGo: '', customer: { state: '', at: '', how: '' } },
+        evidence: { pr: '', preview: '', checks: '', reviewerReport: '', deployId: '', liveUrl: '', liveHash: '' },
+      }, 'created by generator');
+      if (ok) { draft = null; renderPreview(); $('genText').value = ''; genMsg('Card saved.'); }
+      else if ($('genSave')) $('genSave').disabled = false;
+    });
+    $('genDiscard').addEventListener('click', () => { draft = null; renderPreview(); genMsg(''); });
+  }
+  $('genBtn').addEventListener('click', generate);
+  $('genStop').addEventListener('click', () => { if (genCtl) genCtl.abort(); });
+
+  function showLogin() {
+    const dlg = $('loginDlg'); if (!dlg || dlg.open) return;
+    const go = async () => {
+      try { await api('POST', '/login', { password: $('loginPw').value }); location.reload(); }
+      catch (e) { $('loginErr').textContent = e.status === 429 ? 'Too many tries. Wait a minute.' : 'That password is not right.'; $('loginErr').hidden = false; }
+    };
+    $('loginGo').onclick = go;
+    $('loginPw').onkeydown = (ev) => { if (ev.key === 'Enter') go(); };
+    dlg.showModal();
+  }
+  async function loadConfig() {
+    try {
+      const c = await (await fetch(BOARD_API + '/config', { cache: 'no-store' })).json();
+      Object.assign(MOD, c.modules || {});
+      FROM_NAMES.owner = (c.owner && c.owner.name) || 'Owner';
+      FROM_NAMES.agent = (c.agent && c.agent.label) || 'Agent';
+      for (const a of c.agents || []) FROM_NAMES[a.id] = a.label || a.id;
+      const lanes = c.lanes && c.lanes.length ? c.lanes : ['main'];
+      DEFAULT_LANE = lanes[0];
+      for (const l of lanes) { LANES[l] = l.charAt(0).toUpperCase() + l.slice(1); LANE_DESC[l] = LANES[l]; }
+      for (const n of c.mentionNames || []) { if (!MENTIONS.includes(n)) MENTIONS.push(n); MENTION_HINT[n] = FROM_NAMES[n] || n; }
+      for (const a of c.agents || []) if (!OWNERS.includes(a.id)) OWNERS.push(a.id);
+      document.title = (c.owner && c.owner.name ? c.owner.name + ' Board' : 'Board');
+      const h1 = document.querySelector('header.top h1'); if (h1) h1.textContent = document.title;
+    } catch (e) { /* a missing config leaves every module off */ }
+    const sb = $('syncBtn'); if (sb) sb.hidden = !MOD.github;
+    const po = $('genKind').querySelector('option[value="production"]'); if (po && !MOD.production) po.remove();
+    setGenAvailable(!!MOD.generate);
+  }
+  async function start() {
+    await loadConfig();
+    for (const b of document.querySelectorAll('#viewTog button')) { const on = b.dataset.view === view; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', String(on)); }
+    try { await api('GET', '/health'); } catch { healthDown = true; $('sync').textContent = 'Board service unreachable'; }
+    try {
+      const w = await api('GET', '/whoami');
+      me = { principal: String(w.principal || ''), canWrite: w.canWrite !== false, isAdmin: !!w.isAdmin };
+      canWrite = me.canWrite;
+      if (!canWrite) $('ro').hidden = false;
+    } catch (e) { if (e.status === 401) { showLogin(); return; } if (e.status === 403) markReadOnly(); /* no whoami or unreachable: treat as writer */ }
+    await refresh();
+    setInterval(refresh, POLL_MS);
+  }
+  start();
+})();
+</script>
+
+</body></html>

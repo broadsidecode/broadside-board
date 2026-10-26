@@ -1,0 +1,16 @@
+{
+  "ownerName": "Alex",
+  "agentLabel": "Agent",
+  "workerName": "board",
+  "databaseName": "board-db",
+  "databaseId": "",
+  "domain": { "mode": "workers-dev", "hostname": "" },
+  "auth": { "mode": "owner-password", "accessTeamDomain": "", "accessAud": "", "ownerEmail": "" },
+  "agents": [],
+  "workers": [],
+  "lanes": ["main"],
+  "mentionNames": ["agent"],
+  "githubOrgs": [],
+  "modules": { "start": false, "github": false, "production": false, "generate": false, "tabs": false },
+  "runUrl": ""
+}

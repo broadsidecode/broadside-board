@@ -1,0 +1,17 @@
+{
+  "name": "broadside-board",
+  "version": "1.0.0",
+  "description": "A task board for one person and their AI agent, with an MCP connector, on your own Cloudflare account.",
+  "private": false,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "test": "node --import ./tests/setup.mjs --test tests/*.test.js",
+    "setup": "node setup.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.107.0"
+  }
+}
