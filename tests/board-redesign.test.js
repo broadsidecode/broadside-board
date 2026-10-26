@@ -347,7 +347,7 @@ test('rollback rule: only the rollback rule is a 422; a genuine permission refus
 test('page: a 422 shows the server message, Start refusal preserves write access, and approve sends no canned note', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'page', 'index.html'), 'utf8');
   assert.match(html, /patch\.nudgedAt && patch\.pokedAt === '' && \/Start claim\//);
-  assert.match(html, /else if \(e\.status === 403\) markReadOnly\(\);\n\s+else if \(e\.status === 422 && e\.message\)/);
+  assert.match(html, /else if \(e\.status === 403\) markReadOnly\(\);\r?\n\s+else if \(e\.status === 422 && e\.message\)/);
   assert.doesNotMatch(html, /Approved as recommended/);
   assert.match(html, /approveCall\(t, 'approve', n \|\| '', a\.as\)/);
   assert.doesNotMatch(html, /CST-006/);
