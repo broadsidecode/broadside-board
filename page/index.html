@@ -361,7 +361,9 @@
   .msh, .portfolio, dialog.projdlg { --ok: #4CC38A; --bad: #F0706A; }
   .msh { display: flex; gap: 12px; align-items: stretch; margin: 0 0 14px; }
   .msh .mscards { display: flex; gap: 8px; flex: 1 1 auto; min-width: 0; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
-  .msh .mscard { flex: 1 1 130px; min-width: 130px; max-width: 220px; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+  .msh .msbox { flex: 1 1 130px; min-width: 130px; max-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+  .msh .msbox .msdate { align-self: flex-start; height: 24px; padding: 0 9px; font-size: 12px; }
+  .msh .mscard { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
   .msh .mscard:hover { border-color: var(--muted); }
   .msh .mscard[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
   .msh .mscard .msn { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
@@ -381,7 +383,7 @@
   .msh .mspill[aria-pressed="true"] { background: var(--amber); color: #121417; }
   .msh .msedit { height: 24px; padding: 0 9px; font-size: 12px; }
   .card .mstag, .fcard .mstag { display: inline-block; max-width: 100%; padding: 2px 8px; border-radius: 6px; background: var(--chip); color: var(--soft); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  @media (max-width: 720px) { .msh { flex-direction: column; } .msh .msproj { order: -1; width: auto; } .msh .mscard { flex: 0 0 150px; } }
+  @media (max-width: 720px) { .msh { flex-direction: column; } .msh .msproj { order: -1; width: auto; } .msh .msbox { flex: 0 0 150px; } .msh .msbox .msdate, .msh .msedit { min-height: 44px; } }
   .portfolio { position: fixed; inset: 0; z-index: 46; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); color: var(--ink); padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
   .portfolio .ph { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-bottom: 10px; }
   .portfolio .ph h2 { margin: 0; font-size: 16px; font-weight: 600; }
@@ -413,6 +415,8 @@
   dialog.projdlg input, dialog.projdlg select { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 0; box-sizing: border-box; }
   dialog.projdlg .pdrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; align-items: end; margin-bottom: 8px; }
   dialog.projdlg .pdrow button { height: 32px; padding: 0 10px; }
+  dialog.projdlg .pdone { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-bottom: 4px; }
+  dialog.projdlg .pdone .pdoname { grid-column: 1 / 3; }
   dialog.projdlg .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
   @media (max-width: 520px) { dialog.projdlg .pdrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } dialog.projdlg .pdrow .pdname { grid-column: 1 / 3; } dialog.projdlg .pdf { grid-template-columns: minmax(0, 1fr); } }
   .tip { position: fixed; z-index: 1000; max-width: 300px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 12px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,0.45); pointer-events: none; overflow-wrap: anywhere; }
@@ -483,6 +487,12 @@
   <div class="row"><button type="button" id="pdAdd" title="Add a milestone at the end of the list.">Add milestone</button><button type="button" id="pdTemplate" title="Add the standard website milestones that this tab does not have yet, from Intake to Handoff.">Add website milestones</button></div>
   <p class="err" id="pdErr" role="alert" hidden></p>
   <div class="row"><button type="button" id="pdCancel" title="Close without saving.">Cancel</button><button type="button" class="danger" id="pdSave" title="Save the project dates and milestones on this tab.">Save</button></div>
+</dialog>
+<dialog class="confirm projdlg" id="msDlg" aria-labelledby="msDlgTitle">
+  <h3 id="msDlgTitle">Milestone dates</h3>
+  <div class="pdone"><label class="pdoname">Milestone<input type="text" id="mdName" readonly></label><label>Start<input type="date" id="mdStart"></label><label>End<input type="date" id="mdEnd"></label></div>
+  <p class="err" id="mdErr" role="alert" hidden></p>
+  <div class="row"><button type="button" id="mdCancel" title="Close without saving.">Cancel</button><button type="button" class="danger" id="mdSave" title="Save this milestone's start and end dates.">Save</button></div>
 </dialog>
 <div id="panels"></div>
 <dialog class="confirm" id="loginDlg" aria-labelledby="loginMsg">
@@ -646,11 +656,13 @@
     const s = projectStats(b, tasks.filter((t) => t.board === b.id), localToday());
     if (msFilter && msFilter !== NO_MS && !s.milestones.some((m) => m.id === msFilter)) msFilter = '';
     if (msFilter === NO_MS && !(s.noMilestone && s.milestones.length)) msFilter = '';
+    const canEdit = isOwner() && canWrite !== false;
     const cards = s.milestones.map((m) => {
       const pct = m.total ? Math.round(100 * m.done / m.total) : 0;
-      return '<button type="button" class="mscard ' + m.status + '" data-ms="' + esc(m.id) + '" aria-pressed="' + (msFilter === m.id) + '" title="' + esc(m.name + ': ' + MS_WORD[m.status].toLowerCase() + '. Tap to show only its cards on this tab; tap again to show them all.') + '">' +
+      return '<div class="msbox"><button type="button" class="mscard ' + m.status + '" data-ms="' + esc(m.id) + '" aria-pressed="' + (msFilter === m.id) + '" title="' + esc(m.name + ': ' + MS_WORD[m.status].toLowerCase() + '. Tap to show only its cards on this tab; tap again to show them all.') + '">' +
         '<span class="msn">' + esc(m.name) + '</span><span class="msbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' +
-        '<span class="msc">' + esc(msCount(m)) + '</span><span class="msd">' + esc(msDates(m)) + '</span></button>';
+        '<span class="msc">' + esc(msCount(m)) + '</span><span class="msd">' + esc(msDates(m)) + '</span></button>' +
+        (canEdit ? '<button type="button" class="quiet msdate" data-msdate="' + esc(m.id) + '" title="' + esc('Change the start and end dates of ' + m.name + ' only.') + '">Dates</button>' : '') + '</div>';
     }).join('');
     const pill = s.noMilestone && s.milestones.length ? '<button type="button" class="mspill" data-ms="' + NO_MS + '" aria-pressed="' + (msFilter === NO_MS) + '" title="Cards on this tab that name no milestone. Tap to show only them; tap again to show every card.">' + s.noMilestone + ' with no milestone</button>' : '';
     const edit = isOwner() && canWrite !== false ? '<button type="button" class="quiet msedit" data-msedit="1" title="Edit this project: its kind, start and target dates, and each milestone with its dates.">Edit dates</button>' : '';
@@ -664,6 +676,7 @@
   }
   $('msHead').addEventListener('click', (ev) => {
     const t = ev.target && ev.target.closest ? ev.target : null; if (!t) return;
+    const dt = t.closest('[data-msdate]'); if (dt) { const b = boards.find((x) => x.id === current); if (b) openMilestoneDates(b, dt.getAttribute('data-msdate')); return; }
     const edit = t.closest('[data-msedit]'); if (edit) { const b = boards.find((x) => x.id === current); if (b) openProjectEditor(b); return; }
     const pick = t.closest('[data-ms]'); if (!pick) return;
     const id = pick.getAttribute('data-ms'); msFilter = msFilter === id ? '' : id; render();
@@ -696,6 +709,28 @@
     try { await api('PUT', '/boards/' + encodeURIComponent(b.id), { data, ifVersion: b.version }); $('projDlg').close(); afterWrite(); }
     catch (e) { $('pdErr').textContent = e.status === 409 ? 'The tab changed while you were editing. Close this and open it again.' : (e.message || 'Save failed, try again.'); $('pdErr').hidden = false; }
   }
+  // One milestone's dates, from the Dates button on its box: the board is saved with only that entry's start and end changed.
+  const md = { board: null, id: '' };
+  function openMilestoneDates(b, id) {
+    const m = msOf(b).find((x) => x.id === id); if (!m) return;
+    md.board = b; md.id = id;
+    $('mdName').value = m.name; $('mdStart').value = m.start || ''; $('mdEnd').value = m.end || '';
+    $('mdErr').hidden = true; $('msDlg').showModal();
+  }
+  function milestoneDatesData(b, id, start, end) {
+    const data = { ...b, milestones: msOf(b).map((m) => (m.id === id ? { ...m, start: start || '', end: end || '' } : m)) };
+    delete data.id; delete data.version;
+    return data;
+  }
+  async function saveMilestoneDates() {
+    const b = md.board; if (!b) return;
+    const start = $('mdStart').value, end = $('mdEnd').value;
+    if (start && end && end < start) { $('mdErr').textContent = 'The end date is before the start date.'; $('mdErr').hidden = false; return; }
+    try { await api('PUT', '/boards/' + encodeURIComponent(b.id), { data: milestoneDatesData(b, md.id, start, end), ifVersion: b.version }); $('msDlg').close(); afterWrite(); }
+    catch (e) { $('mdErr').textContent = e.status === 409 ? 'The tab changed while you were editing. Close this and open it again.' : (e.message || 'Save failed, try again.'); $('mdErr').hidden = false; }
+  }
+  $('mdCancel').addEventListener('click', () => $('msDlg').close());
+  $('mdSave').addEventListener('click', saveMilestoneDates);
   $('pdRows').addEventListener('input', (ev) => {
     const row = ev.target.closest && ev.target.closest('.pdrow'); const f = ev.target.getAttribute && ev.target.getAttribute('data-f'); if (!row || !f) return;
     pd.rows[Number(row.dataset.i)][f] = ev.target.value;
