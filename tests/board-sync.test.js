@@ -9,7 +9,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const src = (f) => pathToFileURL(path.join(__dirname, '..', 'worker', 'src', f)).href;
-const PR = (n) => `https://github.com/example-org/test-diner/pull/${n}`;
+const PR = (n) => `https://github.com/example-org/acme-plumbing/pull/${n}`;
 
 function fakeDb(seed) {
   const rows = new Map(seed.map((r) => [r.id, { ...r }]));
@@ -42,9 +42,9 @@ function fakeDb(seed) {
 const row = (id, data) => ({ id, version: 3, updated_at: '2026-10-23T05:00:00Z', data: JSON.stringify(data) });
 const seed = [
   // A merge ask and the move to done both need evidence.rollback on the card.
-  row('a', { board: 'test-diner', key: 'TDN-20', title: 'Merged but open on the board', status: 'review', kind: 'agent', evidence: { pr: PR(20), checks: 'pass', rollback: { to: 'the page before PR 20', how: 'revert the merge commit', cannot: 'nothing' } }, ask: { kind: 'merge', text: 'Merge pull request 20', pr: PR(20) }, needsOwner: true, history: [] }),
-  row('b', { board: 'test-diner', key: 'TDN-21', title: 'Thread forgot to move it', status: 'doing', kind: 'agent', evidence: { pr: PR(21) }, history: [] }),
-  row('c', { board: 'test-diner', key: 'TDN-22', title: 'Already right', status: 'review', kind: 'agent', evidence: { pr: PR(22), checks: `pass (1 runs on ${'e'.repeat(40)}, synced from GitHub)`, reviewerComment: 'PR comment claims Reviewer PASS at 2026-10-23T04:00:00Z; reviewer identity unverified' }, gates: { reviewer: { verdict: 'PASS' } }, history: [] }),
+  row('a', { board: 'acme-plumbing', key: 'TDN-20', title: 'Merged but open on the board', status: 'review', kind: 'agent', evidence: { pr: PR(20), checks: 'pass', rollback: { to: 'the page before PR 20', how: 'revert the merge commit', cannot: 'nothing' } }, ask: { kind: 'merge', text: 'Merge pull request 20', pr: PR(20) }, needsOwner: true, history: [] }),
+  row('b', { board: 'acme-plumbing', key: 'TDN-21', title: 'Thread forgot to move it', status: 'doing', kind: 'agent', evidence: { pr: PR(21) }, history: [] }),
+  row('c', { board: 'acme-plumbing', key: 'TDN-22', title: 'Already right', status: 'review', kind: 'agent', evidence: { pr: PR(22), checks: `pass (1 runs on ${'e'.repeat(40)}, synced from GitHub)`, reviewerComment: 'PR comment claims Reviewer PASS at 2026-10-23T04:00:00Z; reviewer identity unverified' }, gates: { reviewer: { verdict: 'PASS' } }, history: [] }),
   row('d', { board: 'main', key: 'TASK-40', title: 'No pull request', status: 'doing', kind: 'agent', history: [] }),
 ];
 
@@ -235,8 +235,8 @@ test('key sync: unknown key, a card with no pull request and a board mismatch ar
   const env = { GITHUB_MERGE_TOKEN: 'x' };
   await assert.rejects(syncBoard(env, fakeDb(keySeed()), 'agent2', { key: 'TASK-999', fetchImpl: keyFetch() }), /no card TASK-999/);
   await assert.rejects(syncBoard(env, fakeDb(keySeed()), 'agent2', { key: 'TASK-83', fetchImpl: keyFetch() }), /names no pull request/);
-  await assert.rejects(syncBoard(env, fakeDb(keySeed()), 'agent2', { key: 'TASK-74', board: 'test-diner', fetchImpl: keyFetch() }), /is on board main/);
-  await assert.rejects(syncBoard(env, fakeDb(keySeed()), 'agent2', { key: 'TASK-74', scope: 'test-diner', fetchImpl: keyFetch() }), /outside this token's board/);
+  await assert.rejects(syncBoard(env, fakeDb(keySeed()), 'agent2', { key: 'TASK-74', board: 'acme-plumbing', fetchImpl: keyFetch() }), /is on board main/);
+  await assert.rejects(syncBoard(env, fakeDb(keySeed()), 'agent2', { key: 'TASK-74', scope: 'acme-plumbing', fetchImpl: keyFetch() }), /outside this token's board/);
   const db = fakeDb(keySeed());
   // Someone else writes the card while GitHub is being read.
   const bump = () => { const r = db.rows.get('k1'); db.rows.set('k1', { ...r, version: r.version + 1 }); };

@@ -3,8 +3,9 @@
 // no markdown tables. Read only: it never writes to the board or to GitHub.
 import { parsePrUrl, riskOf, staleHours, STALE_HOURS, STATUSES, priorityWord } from './lib.js';
 import { listBoards, listTasks, listCounters, listActivity } from './store.js';
+import { isTracked, projectLine, todayIn } from './projects.js';
 
-export const SNAPSHOT_VERSION = '1.0.0';
+export const SNAPSHOT_VERSION = '1.1.0';
 const STATUS_ORDER = STATUSES.filter((s) => s !== 'done');
 const MAX_BYTES = 60 * 1024;
 // Each pull request costs four GitHub calls, and the free Workers plan allows 50 outbound calls per request
@@ -197,6 +198,7 @@ function cardBlock(d, hist, compact = false) {
   L.push(`  status: ${t(c.status || 'todo', 20)}`);
   L.push(`  kind: ${t(c.kind, 20)}`);
   L.push(`  lane: ${orNone(t(c.lane, 40))}`);
+  if (c.milestone) L.push(`  milestone: ${t(c.milestone, 40)}`);
   L.push(`  owner: ${orNone(t(c.owner, 40))}`);
   L.push(`  priority: ${priorityWord(c.priority)}`);
   L.push(`  created by: ${orNone(t(c.createdBy, 40))}`);
@@ -308,6 +310,9 @@ export async function buildSnapshot(env, principal, opts = {}) {
   const stale = open.filter((d) => staleHours(d.data, now) > 0);
   let activity = [];
   try { activity = await listActivity(db, { limit: 30, board: opts.board || '' }); } catch { activity = []; }
+  // One line per tracked tab (projects.js): percent, the milestone moving, the next one, target, cards with no milestone.
+  const projectLines = boards.filter((b) => isTracked(b.data) && (!opts.board || b.id === opts.board))
+    .map((b) => projectLine(b.data.name || b.id, b.data, docs.map((d) => d.data).filter((c) => c.board === b.id), todayIn(env.BOARD_TZ, now)));
   const countOf = (s) => open.filter((d) => d.data.status === s).length;
 
   // GitHub facts: open cards first, then recently done cards, inside the cap.
@@ -340,6 +345,11 @@ export async function buildSnapshot(env, principal, opts = {}) {
     P.push('== STALE ==');
     P.push(stale.length ? stale.map((d) => `stale ${t(d.data.key, 40)} (${t(d.data.board, 60)}): ${t(d.data.title, 120)}; in progress, nothing written for ${staleHours(d.data, now)} h; lane ${orNone(t(d.data.lane, 40))}`).join('\n') : 'none');
     P.push('');
+    if (projectLines.length) {
+      P.push('== PROJECTS ==');
+      for (const l of projectLines) P.push(t(l, 400));
+      P.push('');
+    }
     P.push('== CARDS ==');
     for (const b of boards) {
       if (opts.board && b.id !== opts.board) continue;

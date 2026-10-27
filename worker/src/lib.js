@@ -1,5 +1,6 @@
 // Pure helpers shared by the API and the MCP endpoint. No I/O here, so tests can import it in Node.
 import * as CFG from './config.js';
+import { projectProblem } from './projects.js';
 
 // design () sits between todo and doing: the card carries evidence.design, a canvas URL, and
 // waits for the design ask before anyone builds.
@@ -74,6 +75,8 @@ export const SCOPED_WORKERS = CFG.SCOPED_WORKERS;
 // board, counter and pause write with w null, so no route and no tool can skip it.
 const APPROVAL_FIELDS = { ask: true, evidence: ['pr', 'reviewedHead', 'rollback'], gates: ['reviewer'] };
 const WORKFLOW_FIELDS = { ...APPROVAL_FIELDS, status: true, evidence: ['pr', 'reviewedHead', 'rollback', 'checks', 'merged', 'deployRun', 'deployedSha', 'deployedAt'] };
+// Worker runs the sync, so a card's milestone is the one record field it may also write.
+const JARVIS_FIELDS = { ...APPROVAL_FIELDS, milestone: true };
 const BOOKKEEPING = ['updated', 'updatedBy', 'history'];
 // What add_card builds for a new card; an approval card carries these, its ask and the merge record only.
 const APPROVAL_CARD_IDENTITY = ['board', 'key', 'num', 'title', 'status', 'kind', 'lane', 'owner', 'note', 'link', 'needsOwner', 'waitingOn', 'created', 'risk', 'riskWhy'];
@@ -175,7 +178,7 @@ export function readOnlyProblem(who, w, opts = {}, existing = null) {
     return approvalFieldsProblem(who, w.data, guardCard ? [...APPROVAL_CARD_IDENTITY, 'priority', 'workType'] : APPROVAL_CARD_IDENTITY);
   }
   if (!w || w.op !== 'patch' || !isPlainObject(w.data)) return readOnlyRefusal(who);
-  const allowed = who === 'github-actions' ? WORKFLOW_FIELDS : APPROVAL_FIELDS;
+  const allowed = who === 'github-actions' ? WORKFLOW_FIELDS : who === 'worker' ? JARVIS_FIELDS : APPROVAL_FIELDS;
   const rec = recordProblem(who, w.data, existing);
   if (rec) return rec;
   for (const [k, v] of Object.entries(w.data)) {
@@ -523,6 +526,7 @@ export function validateCard(card) {
   if (typeof card.title !== 'string' || !card.title.trim()) return 'card needs a title';
   if (card.status !== undefined && !STATUSES.includes(card.status)) return `status must be one of ${STATUSES.join('|')}`;
   if (card.kind !== undefined && !KINDS.includes(card.kind)) return `kind must be one of ${KINDS.join('|')}`;
+  if (card.milestone !== undefined && card.milestone !== null && typeof card.milestone !== 'string') return 'milestone is the id of a milestone on the card\'s tab, such as build';
   return null;
 }
 
@@ -539,7 +543,8 @@ export function validateBoard(board) {
       }
     }
   }
-  return null;
+  // kind, start, target and milestones (projects.js): the tab as a project.
+  return projectProblem(board);
 }
 
 // The indexed copies of a card.
@@ -561,7 +566,7 @@ export function principalFromClaims(claims, emailMap = {}, serviceMap = {}) {
 }
 
 export function compactCard(card) {
-  const pick = ['key', 'title', 'status', 'kind', 'lane', 'owner', 'note', 'needsOwner', 'ask', 'waitingOn', 'link', 'board', 'createdBy', 'touchedBy', 'risk', 'riskWhy'];
+  const pick = ['key', 'title', 'status', 'kind', 'lane', 'owner', 'note', 'needsOwner', 'ask', 'waitingOn', 'link', 'board', 'createdBy', 'touchedBy', 'risk', 'riskWhy', 'milestone'];
   const out = {};
   for (const k of pick) if (card[k] !== undefined) out[k] = card[k];
   return out;

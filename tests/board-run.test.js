@@ -45,16 +45,16 @@ function fakeDb(seed, boards = {}) {
 }
 
 const card = (extra) => ({ id: 'c1', version: 2, updated_at: '2026-10-24T05:00:00Z', data: JSON.stringify({
-  board: 'test-diner', key: 'TDN-1', title: 'Pie case image', status: 'todo', kind: 'agent', lane: 'lane1',
+  board: 'acme-plumbing', key: 'TDN-1', title: 'Pie case image', status: 'todo', kind: 'agent', lane: 'lane1',
   nudgedAt: '2026-10-24T05:00:00Z', pokedAt: '', history: [], ...extra }) });
-const ENV = { BOARD_RUNS: JSON.stringify({ 'test-diner': 'trig_abc' }), RUN_TOKEN_TEST_DINER: 'tok' };
+const ENV = { BOARD_RUNS: JSON.stringify({ 'acme-plumbing': 'trig_abc' }), RUN_TOKEN_ACME_PLUMBING: 'tok' };
 
 test('runTarget needs both the routine id and the board token', async () => {
   const { runTarget } = await import(src('run.js'));
-  assert.deepEqual(runTarget(ENV, 'test-diner'), { id: 'trig_abc', token: 'tok' });
-  assert.equal(runTarget({ BOARD_RUNS: ENV.BOARD_RUNS }, 'test-diner'), null);
-  assert.equal(runTarget(ENV, 'coachsmart-test'), null);
-  assert.equal(runTarget({ BOARD_RUNS: 'not json', RUN_TOKEN_TEST_DINER: 'tok' }, 'test-diner'), null);
+  assert.deepEqual(runTarget(ENV, 'acme-plumbing'), { id: 'trig_abc', token: 'tok' });
+  assert.equal(runTarget({ BOARD_RUNS: ENV.BOARD_RUNS }, 'acme-plumbing'), null);
+  assert.equal(runTarget(ENV, 'riverside-bakery-test'), null);
+  assert.equal(runTarget({ BOARD_RUNS: 'not json', RUN_TOKEN_ACME_PLUMBING: 'tok' }, 'acme-plumbing'), null);
 });
 
 test('startRun fires with the card key, records the run link and sets pokedAt', async () => {
@@ -154,7 +154,7 @@ test('a worker cannot delete an uncertain Start claim and a proxy cannot reset i
   const { handleApi } = await import(src('api.js'));
   const db = fakeDb([card({})]);
   let fires = 0;
-  const env = { ...ENV, DB: db, SERVICE_PRINCIPALS: JSON.stringify({ 'cloudtd.access': 'cloud-worker@test-diner' }), fetchImpl: async () => { fires++; throw new Error('lost relay acknowledgment'); } };
+  const env = { ...ENV, DB: db, SERVICE_PRINCIPALS: JSON.stringify({ 'cloudtd.access': 'cloud-worker@acme-plumbing' }), fetchImpl: async () => { fires++; throw new Error('lost relay acknowledgment'); } };
   await startRun(env, db, 'owner', 'c1');
   const claimed = JSON.parse(db.rows.get('c1').data);
   const req = new Request('https://board.example.com/api/v1/tasks/c1', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ifVersion: db.rows.get('c1').version, data: { evidence: { start: { __delete__: true } } } }) });
@@ -333,25 +333,25 @@ test('runTarget can wire one lane of a board: main:worker fires, other main lane
 test('TASK-66: a paused tab fires no Start and no mention wake, and leaves both queued', async () => {
   const { startRun, mentionRun } = await import(src('run.js'));
   const fetchImpl = async () => { throw new Error('should not fire while paused'); };
-  const paused = { 'test-diner': { name: 'Test Diner', prefix: 'TDN', paused: true } };
+  const paused = { 'acme-plumbing': { name: 'Acme Plumbing', prefix: 'TDN', paused: true } };
   const db = fakeDb([card({})], paused);
-  assert.deepEqual(await startRun({ ...ENV, fetchImpl }, db, 'owner', 'c1'), { heldPaused: true, board: 'test-diner' });
+  assert.deepEqual(await startRun({ ...ENV, fetchImpl }, db, 'owner', 'c1'), { heldPaused: true, board: 'acme-plumbing' });
   let after = JSON.parse(db.rows.get('c1').data);
   assert.equal(after.pokedAt, '', 'the Start is not claimed');
   assert.ok(after.nudgedAt, 'the nudge stays');
   assert.equal(after.evidence, undefined);
-  assert.match(after.history.at(-1).what, /board test-diner is paused; the Start stays queued/);
+  assert.match(after.history.at(-1).what, /board acme-plumbing is paused; the Start stays queued/);
   const mention = { to: 'lane1', by: 'agent', at: '2026-10-25T05:00:00Z', questionId: 'q1', text: '@lane1 look' };
   const db2 = fakeDb([card({ status: 'doing', mention })], paused);
-  assert.deepEqual(await mentionRun({ ...ENV, fetchImpl }, db2, 'owner', 'c1'), { heldPaused: true, board: 'test-diner' });
+  assert.deepEqual(await mentionRun({ ...ENV, fetchImpl }, db2, 'owner', 'c1'), { heldPaused: true, board: 'acme-plumbing' });
   after = JSON.parse(db2.rows.get('c1').data);
   assert.deepEqual(after.mention, mention, 'the question is untouched, not tried and not answered');
-  assert.match(after.history.at(-1).what, /not woken: board test-diner is paused/);
+  assert.match(after.history.at(-1).what, /not woken: board acme-plumbing is paused/);
 });
 
 test('TASK-66: a pause on another tab, or paused false, changes nothing', async () => {
   const { startRun } = await import(src('run.js'));
-  for (const boards of [{ harbor: { name: 'Harbor', paused: true } }, { 'test-diner': { name: 'Test Diner', paused: false } }]) {
+  for (const boards of [{ harbor: { name: 'Harbor', paused: true } }, { 'acme-plumbing': { name: 'Acme Plumbing', paused: false } }]) {
     let fired = 0;
     const fetchImpl = async () => { fired++; return { ok: true, status: 200, json: async () => ({ claude_code_session_url: 'https://claude.ai/code/session_2' }) }; };
     const db = fakeDb([card({})], boards);
@@ -369,7 +369,7 @@ test('TASK-66: @worker on any tab follows the main tab pause, not the card tab',
   assert.deepEqual(await mentionRun({ ...env, fetchImpl }, db, 'owner', 'c1'), { heldPaused: true, board: 'main' });
   let fired = 0;
   const ok = async () => { fired++; return { ok: true, status: 200, json: async () => ({ claude_code_session_url: 'https://claude.ai/code/session_3' }) }; };
-  const db2 = fakeDb([card({ mention })], { 'test-diner': { name: 'Test Diner', paused: true } });
+  const db2 = fakeDb([card({ mention })], { 'acme-plumbing': { name: 'Acme Plumbing', paused: true } });
   assert.deepEqual(await mentionRun({ ...env, fetchImpl: ok }, db2, 'owner', 'c1'), { run: 'https://claude.ai/code/session_3' });
   assert.equal(fired, 1);
 });
@@ -390,7 +390,7 @@ test('startRun sends the card over the line first and records the coordinator li
   assert.equal(calls.length, 1, 'no relay fire when the line took it');
   assert.equal(calls[0].url, 'https://hooks.example.com/start');
   assert.equal(calls[0].init.headers.authorization, 'Bearer start-key-for-tests');
-  assert.deepEqual(JSON.parse(calls[0].init.body), { board: 'test-diner', lane: 'lane1', key: 'TDN-1', title: 'Pie case image', by: 'owner', link: 'https://board.example.com/#TDN-1' });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { board: 'acme-plumbing', lane: 'lane1', key: 'TDN-1', title: 'Pie case image', by: 'owner', link: 'https://board.example.com/#TDN-1' });
   const after = JSON.parse(db.rows.get('c1').data);
   assert.equal(after.evidence.relay, 'https://claude.ai/code/cse_coord');
   assert.match(after.history.at(-1).what, /run started by .* over the start webhook, coordinator: /);

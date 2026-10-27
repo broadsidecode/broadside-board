@@ -15,7 +15,7 @@ let sqlite = null;
 try { sqlite = require('node:sqlite'); } catch { /* older Node: the store tests below skip */ }
 const src = (f) => pathToFileURL(path.join(__dirname, '..', 'worker', 'src', f)).href;
 const SCHEMA = fs.readFileSync(path.join(__dirname, '..', 'worker', 'schema.sql'), 'utf8');
-const PR = 'https://github.com/example-org/test-diner/pull/40';
+const PR = 'https://github.com/example-org/acme-plumbing/pull/40';
 const ROLLBACK = { to: 'the menu page as it was on 2026-10-20', how: 'revert the merge commit and redeploy', cannot: 'nothing' };
 const deny = (status, re) => (e) => e.status === status && re.test(e.message);
 const needsSqlite = { skip: !sqlite && 'node:sqlite missing' };
@@ -54,9 +54,9 @@ function d1() {
 async function setup() {
   const store = await import(src('store.js'));
   const db = d1();
-  db.raw.prepare('INSERT INTO board_boards (id, data, version, updated_at) VALUES (?, ?, 1, ?)').run('test-diner', JSON.stringify({ name: 'Test Diner', prefix: 'TDN', order: 1 }), 'x');
+  db.raw.prepare('INSERT INTO board_boards (id, data, version, updated_at) VALUES (?, ?, 1, ?)').run('acme-plumbing', JSON.stringify({ name: 'Acme Plumbing', prefix: 'TDN', order: 1 }), 'x');
   db.raw.prepare('INSERT INTO board_counters (id, next, version) VALUES (?, 41, 1)').run('TDN');
-  const put = (id, who, data) => store.writeTask(db, who, { op: 'put', id, data: { board: 'test-diner', history: [], ...data } });
+  const put = (id, who, data) => store.writeTask(db, who, { op: 'put', id, data: { board: 'acme-plumbing', history: [], ...data } });
   await put('a', 'owner', { key: 'TDN-40', title: 'Menu page', status: 'doing', kind: 'agent', lane: 'lane1' });
   await put('p', 'owner', { key: 'TDN-39', title: 'Deploy menu', status: 'todo', kind: 'production', lane: 'lane1', evidence: { rollback: ROLLBACK } });
   const card = (id) => JSON.parse(db.raw.prepare('SELECT data FROM board_tasks WHERE id = ?').get(id).data);
@@ -150,10 +150,10 @@ test('priority: the store, add_card and update_card accept the words; the snapsh
     const r = await mcp.handleRpc(env, principal, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } });
     return { isError: !!r.json.result.isError, text: r.json.result.content[0].text };
   };
-  const refused = await call('agent2', 'add_card', { board: 'test-diner', title: 'Urgent thing', kind: 'agent', priority: 'urgent' });
+  const refused = await call('agent2', 'add_card', { board: 'acme-plumbing', title: 'Urgent thing', kind: 'agent', priority: 'urgent' });
   assert.equal(refused.isError, true);
   assert.match(refused.text, /403: the board is read only for agent2/);
-  const added = await call('owner', 'add_card', { board: 'test-diner', title: 'Urgent thing', kind: 'agent', priority: 'urgent' });
+  const added = await call('owner', 'add_card', { board: 'acme-plumbing', title: 'Urgent thing', kind: 'agent', priority: 'urgent' });
   assert.equal(added.isError, false, added.text);
   const key = JSON.parse(added.text).key;
   const doc = await store.getTaskByKey(db, key);
@@ -210,10 +210,10 @@ test('rollback rule: the store refuses with 422 (not 403, which is a read only t
   await patch('a', 'owner', { status: 'done', ask: null });
   assert.equal(card('a').status, 'done');
   // A seed (PUT with seedVersion and importHistory) carries an old done card as it was. Owner only now; worker is read only.
-  await assert.rejects(store.writeTask(db, 'worker', { op: 'put', id: 'old', data: { board: 'test-diner', key: 'TDN-2', title: 'Old', status: 'done', kind: 'agent', history: [] } }, { seedVersion: 4, importHistory: true }), deny(403, /read only for worker/));
-  await store.writeTask(db, 'owner', { op: 'put', id: 'old', data: { board: 'test-diner', key: 'TDN-2', title: 'Old', status: 'done', kind: 'agent', history: [{ at: 'T', by: 'x', what: 'done long ago' }] } }, { seedVersion: 4, importHistory: true });
+  await assert.rejects(store.writeTask(db, 'worker', { op: 'put', id: 'old', data: { board: 'acme-plumbing', key: 'TDN-2', title: 'Old', status: 'done', kind: 'agent', history: [] } }, { seedVersion: 4, importHistory: true }), deny(403, /read only for worker/));
+  await store.writeTask(db, 'owner', { op: 'put', id: 'old', data: { board: 'acme-plumbing', key: 'TDN-2', title: 'Old', status: 'done', kind: 'agent', history: [{ at: 'T', by: 'x', what: 'done long ago' }] } }, { seedVersion: 4, importHistory: true });
   assert.equal(card('old').status, 'done');
-  await assert.rejects(store.writeTask(db, 'owner', { op: 'put', id: 'old2', data: { board: 'test-diner', key: 'TDN-3', title: 'Old', status: 'done', kind: 'agent', history: [] } }, { seedVersion: 4 }), deny(422, /rollback/), 'seedVersion alone is not the exception');
+  await assert.rejects(store.writeTask(db, 'owner', { op: 'put', id: 'old2', data: { board: 'acme-plumbing', key: 'TDN-3', title: 'Old', status: 'done', kind: 'agent', history: [] } }, { seedVersion: 4 }), deny(422, /rollback/), 'seedVersion alone is not the exception');
 });
 
 // ---------------------------------------------------------------- 4. questions go to Agent
@@ -439,7 +439,7 @@ test('rollback action: concurrent requests and retries return one rollback card'
   assert.equal(first.key, second.key);
   const retry = await rollbackCard(db, 'owner', 'a');
   assert.equal(retry.key, first.key);
-  const rollbacks = (await store.listTasks(db, { board: 'test-diner' })).filter((t) => t.data.evidence?.rollbackOf === 'TDN-40');
+  const rollbacks = (await store.listTasks(db, { board: 'acme-plumbing' })).filter((t) => t.data.evidence?.rollbackOf === 'TDN-40');
   assert.equal(rollbacks.length, 1);
   assert.equal(db.raw.prepare('SELECT COUNT(*) AS n FROM board_tasks WHERE id = ?').get(first.id).n, 1);
 });
@@ -507,7 +507,7 @@ test('rollback action: the API route and the MCP tool, Owner proxies only', need
   const { db, patch } = await setup();
   await patch('a', 'cloud-worker', { evidence: { rollback: ROLLBACK } });
   const api = await import(src('api.js'));
-  const env = { DB: db, HANDBOOK: 'x', SERVICE_PRINCIPALS: JSON.stringify({ 'cloudtd.access': 'cloud-worker@test-diner', 'jarv.access': 'worker' }), EMAIL_PRINCIPALS: JSON.stringify({ 'owner@example.com': 'owner' }) };
+  const env = { DB: db, HANDBOOK: 'x', SERVICE_PRINCIPALS: JSON.stringify({ 'cloudtd.access': 'cloud-worker@acme-plumbing', 'jarv.access': 'worker' }), EMAIL_PRINCIPALS: JSON.stringify({ 'owner@example.com': 'owner' }) };
   const call = async (claims, method, p, body) => {
     const req = new Request(`https://board.example.com/api/v1${p}`, { method, body: body ? JSON.stringify(body) : undefined, headers: { 'content-type': 'application/json' } });
     let res;

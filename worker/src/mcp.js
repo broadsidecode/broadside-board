@@ -2,6 +2,7 @@
 // through the same store as the REST API, so versions, validation and history_log behave the same.
 import { CLERK, clerkRefusal, RISK_TIERS, riskOf, compactCard, isPlainObject, readOnlyRefusal, isWaiting, waitingLine, mcpPatchProblem, slug, WRITERS, OWNER_PROXIES, isOwnerProxy, actorLabel, isStale, STATUSES, ASK_KINDS, priorityNumber, COMMENT_MAX, openMention, mentionQuestionId, canAnswerMention } from './lib.js';
 import { rollbackCard } from './rollback.js';
+import { isTracked, milestoneLines, newProjectFields, PROJECT_KINDS, projectLine, todayIn } from './projects.js';
 import { startRun, mentionRun } from './run.js';
 import { listBoards, getBoard, listTasks, getTaskByKey, writeTask, nextNumber, listActivity, HttpError, isBoardPaused, setBoardPaused, createBoard } from './store.js';
 
@@ -10,6 +11,7 @@ import { generateCard } from './generate.js';
 import { buildSnapshot } from './snapshot.js';
 import { approveCard } from './approve.js';
 import { syncBoard, syncText } from './sync.js';
+import { logCall } from './pulse.js';
 
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 import * as CFG from './config.js';
@@ -34,7 +36,7 @@ export const TOOLS = [
     name: 'list_cards',
     description: 'List cards in compact form (key, title, status, kind, lane, owner, note, needsOwner, ask, waitingOn, link, createdBy, touchedBy). All filters optional.',
     inputSchema: obj({
-      board: { type: 'string', description: 'Board id such as main, test-diner, coachsmart.' },
+      board: { type: 'string', description: 'Board id such as main, acme-plumbing, riverside-bakery.' },
       status: { type: 'string', enum: STATUSES },
       kind: { type: 'string', enum: ['human', 'agent', 'production'] },
       lane: { type: 'string' },
@@ -60,7 +62,7 @@ export const TOOLS = [
     name: 'generate_card',
     description: 'Turn one plain sentence into a full card draft (title, note, brief, done criteria, test steps, expected, workType, skillsRequired) with the same generator Owner uses on the board page. It writes nothing: read the draft, fix anything wrong, then pass its fields to add_card. kind is human, agent or production (production only describes; the server still refuses to create it). Writers only; about 12 a minute.',
     inputSchema: obj({
-      board: { type: 'string', description: 'Board id such as main or test-diner; it only colors the prompt.' },
+      board: { type: 'string', description: 'Board id such as main or acme-plumbing; it only colors the prompt.' },
       text: { type: 'string', description: 'The task in plain words, up to 4000 characters.' },
       kind: { type: 'string', enum: ['human', 'agent', 'production'], description: 'Card kind for the draft. Default agent.' },
     }, ['text']),
@@ -87,7 +89,7 @@ export const TOOLS = [
   },
   {
     name: 'update_card',
-    description: 'Owner writes any field. Agent, the board\'s clerk (), writes the record: status (done included), note, link, owner, lane, waitingOn, priority, title, brief, evidence and history lines, but never gates, hold, nudgedAt, pokedAt, a card\'s kind, or evidence.start, run, relay, reviewedHead or mergeAttempt; those stay Owner\'s or the reviewer\'s. Every other name may patch only ask and the record a merge ask needs (evidence.pr, evidence.rollback, evidence.reviewedHead, gates.reviewer), because the board is read only for agents (). To ask Owner for something, set ask {kind, text, pr}: kind merge (pr is the pull request URL, text like "Merge pull request 11"), go (production go), design (approve the design on evidence.design), answer (a question answered in words) or decide (anything else, with text). A merge ask goes to Agent (ask.to agent, waitingOn agent): she approves merges now, not Owner (). An answer or decide ask from a bot goes to Agent too (the card waits on her); from Owner\'s connectors it is a recommendation for Owner. The other kinds set needsOwner and give the card a red Approve button; Owner presses it and the board does the thing. Never ask him in chat alone. A merge ask and a move to done are refused until evidence.rollback {to, how, cannot} is on the card. priority takes the words urgent, normal or low. Merge fields into a card: objects merge at every depth; arrays replace. ifVersion must be the version from get_card. Cannot change key, num or history, and gates.ownerGo is only ever set through approve_card with a go. kind production may be set by Owner or a connector that speaks for him. The server adds this connector to touchedBy and never changes createdBy, so do not set either.',
+    description: 'Owner writes any field. Agent, the board\'s clerk (), writes the record: status (done included), note, link, owner, lane, waitingOn, priority, title, brief, evidence and history lines, but never gates, hold, nudgedAt, pokedAt, a card\'s kind, or evidence.start, run, relay, reviewedHead or mergeAttempt; those stay Owner\'s or the reviewer\'s. Every other name may patch only ask and the record a merge ask needs (evidence.pr, evidence.rollback, evidence.reviewedHead, gates.reviewer), because the board is read only for agents (). To ask Owner for something, set ask {kind, text, pr}: kind merge (pr is the pull request URL, text like "Merge pull request 11"), go (production go), design (approve the design on evidence.design), answer (a question answered in words) or decide (anything else, with text). A merge ask goes to Agent (ask.to agent, waitingOn agent): she approves merges now, not Owner (). An answer or decide ask from a bot goes to Agent too (the card waits on her); from Owner\'s connectors it is a recommendation for Owner. The other kinds set needsOwner and give the card a red Approve button; Owner presses it and the board does the thing. Never ask him in chat alone. A merge ask and a move to done are refused until evidence.rollback {to, how, cannot} is on the card. priority takes the words urgent, normal or low. Merge fields into a card: objects merge at every depth; arrays replace. ifVersion must be the version from get_card. Cannot change key, num or history, and gates.ownerGo is only ever set through approve_card with a go. kind production may be set by Owner or a connector that speaks for him. The server adds this connector to touchedBy and never changes createdBy, so do not set either. milestone (Owner, Agent and Worker) is the id of one of the card\'s own tab milestones, such as build; list_boards shows them, and an id the tab does not have is refused. Milestone dates and project dates are never set here; Owner changes them on the tab header.',
     inputSchema: obj({ key: { type: 'string' }, patch: { type: 'object' }, ifVersion: { type: 'integer' } }, ['key', 'patch', 'ifVersion']),
   },
   {
@@ -137,7 +139,7 @@ export const TOOLS = [
     name: 'pause_board',
     description: 'Pause or resume one board tab (rare; for testing one lane at a time). While a tab is paused the board starts no new work there: Start and @mention wakes for that tab\'s project are not fired, stay queued on their cards, and a Board run that starts anyway reads the pause and works only what the board fired before it (or exits without project work). Work fired before the pause still finishes. It does not stop a run already working and does not disable the agent jobs themselves. Resume fires nothing on its own; it lists what is queued and what was fired before the pause and is not finished, and the next Start or comment on each card fires it as usual. The board records who paused or resumed and when. Owner only: the board is read only for agents (). Press it when Owner says to.',
     inputSchema: obj({
-      board: { type: 'string', description: 'Board id such as test-diner or main.' },
+      board: { type: 'string', description: 'Board id such as acme-plumbing or main.' },
       paused: { type: 'boolean', description: 'true pauses the tab, false resumes it.' },
       reason: { type: 'string', description: 'One line on why, written to the board and the history log.' },
     }, ['board', 'paused']),
@@ -154,6 +156,7 @@ export const TOOLS = [
         url: { type: 'string', description: 'The project link, https://claude.ai/code/project/<id>.' },
       }, ['name', 'url']),
       lane: { type: 'string', description: 'Which lane that project works, or * for every lane (the default).' },
+      kind: { type: 'string', enum: PROJECT_KINDS, description: 'What the tab is: website (the default, with the standard seven milestones from Intake to Handoff), product or internal (no milestones until Owner adds them).' },
     }, ['id', 'name', 'prefix', 'project']),
   },
   {
@@ -168,7 +171,7 @@ export const TOOLS = [
     name: 'sync_github',
     description: 'The Sync button: make every card that names a pull request agree with GitHub (merged becomes done with the merge sha, an open pull request moves a todo or doing card to review, checks and the Reviewer comment are recorded). A fallback for when a thread or the repo workflow missed an update; the board cannot read the Claude projects, GitHub is its one source. A production card whose deploy is not recorded (no evidence.deployedSha) keeps its status when its pull request merges. key syncs one card only and writes only its checks line and the Reviewer comment claim, never status, ask or needsOwner. dry true previews without writing. Optional board id. Writers only; every change gets a history line naming you.',
     inputSchema: obj({
-      board: { type: 'string', description: 'Board id such as test-diner. Omit for every board.' },
+      board: { type: 'string', description: 'Board id such as acme-plumbing. Omit for every board.' },
       key: { type: 'string', description: 'One card key such as TASK-74: refresh only its exact head checks and reviewer comment evidence.' },
       dry: { type: 'boolean', description: 'true: report what would change and write nothing.' },
     }),
@@ -177,7 +180,7 @@ export const TOOLS = [
     name: 'snapshot',
     description: 'The whole state of the work in one plain text read: asks for Owner, every open card with its evidence, gates and last history lines, the latest done cards, and a GitHub cross check that puts each pull request next to what its card claims, with MISMATCH lines where they differ. Read only. Optional board id to limit it; github false skips the GitHub cross check.',
     inputSchema: obj({
-      board: { type: 'string', description: 'Board id such as main or test-diner. Omit for every board.' },
+      board: { type: 'string', description: 'Board id such as main or acme-plumbing. Omit for every board.' },
       github: { type: 'boolean', description: 'false skips the GitHub cross check. Default true.' },
     }),
   },
@@ -187,11 +190,16 @@ export const TOOLS = [
     inputSchema: obj({}),
   },
   {
+    name: 'project_status',
+    description: 'How far along a project is, in words, without reading its cards: percent complete (cards done over cards on the tab), the milestone moving now with its done count and blocked count, the next one not started, the target date, whether it is late, and how many cards name no milestone. One line per project, then one line per milestone for a single board. Omit board for every tracked project. Read only.',
+    inputSchema: obj({ board: { type: 'string', description: 'Board id such as riverside-bakery. Omit for every tab that has a kind, dates or milestones.' } }),
+  },
+  {
     name: 'activity',
     description: 'The activity feed: every write the board took, newest first, across every board, one plain line each (time, who, card key, what). Use since (an ISO time, for example the time of the last read) to get only what changed since Owner or you last looked; board limits it to one tab; limit caps the lines (default 50, max 500). Read only.',
     inputSchema: obj({
       since: { type: 'string', description: 'ISO time; only entries after it. Omit for the latest.' },
-      board: { type: 'string', description: 'Board id such as main or test-diner.' },
+      board: { type: 'string', description: 'Board id such as main or acme-plumbing.' },
       limit: { type: 'integer', description: 'Max lines, default 50, max 500.' },
     }),
   },
@@ -255,6 +263,7 @@ async function callTool(env, principal, name, args = {}) {
     case 'list_boards': {
       const boards = await listBoards(db);
       return boards.map((b) => ({ id: b.id, name: b.data.name, prefix: b.data.prefix, order: b.data.order, ...(b.data.projects ? { projects: b.data.projects } : {}),
+        ...(b.data.kind ? { kind: b.data.kind } : {}), ...(b.data.start ? { start: b.data.start } : {}), ...(b.data.target ? { target: b.data.target } : {}), ...(Array.isArray(b.data.milestones) && b.data.milestones.length ? { milestones: b.data.milestones } : {}),
         paused: isBoardPaused(b), ...(b.data.pauseSetAt ? { pauseSetBy: b.data.pauseSetBy, pauseSetAt: b.data.pauseSetAt, pauseReason: b.data.pauseReason || '' } : {}) }))
         .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
     }
@@ -458,7 +467,10 @@ async function callTool(env, principal, name, args = {}) {
       const p = isPlainObject(args.project) ? args.project : {};
       const project = { name: String(p.name || '').trim(), url: String(p.url || '') };
       const order = (await listBoards(db)).reduce((n, b) => Math.max(n, Number(b.data && b.data.order) || 0), 0) + 1;
-      return createBoard(db, principal, id, { name, prefix: String(args.prefix || ''), order, projects: { [lane]: project } });
+      const kind = args.kind === undefined || args.kind === '' ? 'website' : String(args.kind);
+      if (!PROJECT_KINDS.includes(kind)) throw new HttpError(400, `kind must be one of ${PROJECT_KINDS.join('|')}`);
+      // A new tab starts as a project: its kind, started today, no target, and the kind's standard milestones (projects.js).
+      return createBoard(db, principal, id, { name, prefix: String(args.prefix || ''), order, projects: { [lane]: project }, ...newProjectFields(todayIn(env.BOARD_TZ), kind) });
     }
     case 'delete_card': {
       if (!isOwnerProxy(principal)) throw new HttpError(403, `delete_card is for Owner and the connectors that speak for him (${PROXY_LIST})`);
@@ -488,7 +500,27 @@ async function callTool(env, principal, name, args = {}) {
       const lines = docs.map((d) => d.data).filter((c) => isWaiting(c) || isStale(c) || (c.status !== 'done' && (openMention(c) || (c.ask && c.ask.to === 'agent'))))
         .sort((a, b) => String(a.board).localeCompare(String(b.board)) || (a.num || 0) - (b.num || 0))
         .map((c) => `${c.board}: ${waitingLine(c)}`);
-      return lines.length ? lines.join('\n') : 'Nothing is waiting.';
+      // The project lines ride along, so "how far along are we" is answered by the same read.
+      const projects = (await listBoards(db)).filter((b) => isTracked(b.data)).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99))
+        .map((b) => projectLine(b.data.name || b.id, b.data, docs.map((d) => d.data).filter((c) => c.board === b.id), todayIn(env.BOARD_TZ)));
+      const head = lines.length ? lines.join('\n') : 'Nothing is waiting.';
+      return projects.length ? `${head}\n\nProjects:\n${projects.join('\n')}` : head;
+    }
+    case 'project_status': {
+      const asked = args.board ? String(args.board) : '';
+      const boards = await listBoards(db);
+      const picked = asked ? boards.filter((b) => b.id === asked) : boards.filter((b) => isTracked(b.data));
+      if (asked && !picked.length) throw new HttpError(404, `no board ${asked}`);
+      if (!picked.length) return 'No project is tracked yet: a tab becomes a project when it has a kind, dates or milestones.';
+      const docs = await listTasks(db, asked ? { board: asked } : {});
+      const today = todayIn(env.BOARD_TZ);
+      const out = [];
+      for (const b of picked.sort((x, y) => (x.data.order ?? 99) - (y.data.order ?? 99))) {
+        const cards = docs.map((d) => d.data).filter((c) => c.board === b.id);
+        out.push(projectLine(b.data.name || b.id, b.data, cards, today));
+        if (asked) out.push(...milestoneLines(b.data, cards, today));
+      }
+      return out.join('\n');
     }
     case 'activity': {
       const entries = await listActivity(db, { since: args.since ? String(args.since) : '', limit: args.limit || 50, board: args.board ? String(args.board) : '' });
@@ -547,13 +579,19 @@ export async function handleRpc(env, principal, body) {
     }
     case 'tools/call': {
       const name = body.params && body.params.name;
-      if (!TOOLS.some((t) => t.name === name)) return { status: 200, json: rpcError(body.id, -32602, `Unknown tool ${name}`) };
+      const args = (body.params && body.params.arguments) || {};
+      const startedMs = Date.now();
+      // Board Pulse: one log row per call, written after it finishes (pulse.js logCall never throws).
+      const record = (outcome, error) => logCall(env, { worker: 'board', principal, tool: name, args, startedMs, outcome, error, words: args.text });
+      if (!TOOLS.some((t) => t.name === name)) { await record('error', 'unknown tool'); return { status: 200, json: rpcError(body.id, -32602, `Unknown tool ${name}`) }; }
       try {
-        const result = await callTool(env, principal, name, (body.params && body.params.arguments) || {});
+        const result = await callTool(env, principal, name, args);
         const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+        await record('ok');
         return { status: 200, json: rpcResult(body.id, { content: [{ type: 'text', text }] }) };
       } catch (err) {
         const msg = err instanceof HttpError ? `${err.status}: ${err.message}${Object.keys(err.extra || {}).length ? ` ${JSON.stringify(err.extra)}` : ''}` : 'internal error';
+        await record('error', msg);
         return { status: 200, json: rpcResult(body.id, { isError: true, content: [{ type: 'text', text: msg }] }) };
       }
     }

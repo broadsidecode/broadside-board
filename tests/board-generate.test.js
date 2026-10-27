@@ -79,8 +79,8 @@ test('generate_card on the MCP returns the draft and writes nothing', async () =
   const { handleRpc } = await import(mcpUrl);
   const e = env(JSON.stringify(CARD));
   let writes = 0;
-  const prep = e.DB.prepare;
-  e.DB.prepare = (sql) => { if (/INSERT|UPDATE/i.test(sql)) writes++; return prep(sql); };
+  const prep = e.DB.prepare; // the Pulse call log row is not a card write
+  e.DB.prepare = (sql) => { if (/INSERT|UPDATE/i.test(sql) && !/board_mcp_calls/.test(sql)) writes++; return prep(sql); };
   const out = await handleRpc(e, 'agent', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'generate_card', arguments: { board: 'harbor', text: 'Add Saturday hours to the footer', kind: 'agent' } } });
   const body = out.json.result;
   const payload = body.structuredContent || JSON.parse(body.content[0].text);

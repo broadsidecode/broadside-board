@@ -48,7 +48,7 @@ function d1() {
 }
 
 const ENV = {
-  SERVICE_PRINCIPALS: JSON.stringify({ 'cloudtd.access': 'cloud-worker@test-diner', 'ghtd.access': 'github-actions@test-diner', 'jarv.access': 'worker', 'bare.access': 'cloud-worker' }),
+  SERVICE_PRINCIPALS: JSON.stringify({ 'cloudtd.access': 'cloud-worker@acme-plumbing', 'ghtd.access': 'github-actions@acme-plumbing', 'jarv.access': 'worker', 'bare.access': 'cloud-worker' }),
   EMAIL_PRINCIPALS: JSON.stringify({ 'owner@example.com': 'owner' }),
 };
 const as = (cn) => ({ common_name: cn });
@@ -59,13 +59,13 @@ async function setup() {
   const store = await import(src('store.js'));
   const db = d1();
   const env = { ...ENV, DB: db };
-  for (const [id, prefix] of [['main', 'KIT'], ['test-diner', 'TDN'], ['harbor', 'HBR']]) {
+  for (const [id, prefix] of [['main', 'KIT'], ['acme-plumbing', 'TDN'], ['harbor', 'HBR']]) {
     db.raw.prepare('INSERT INTO board_boards (id, data, version, updated_at) VALUES (?, ?, 1, ?)').run(id, JSON.stringify({ name: id, prefix, order: 1 }), 'x');
     db.raw.prepare('INSERT INTO board_counters (id, next, version) VALUES (?, 10, 1)').run(prefix);
   }
   await store.writeTask(db, 'owner', { op: 'put', id: 'm1', data: { board: 'main', key: 'TASK-1', title: 'Main card', status: 'todo', kind: 'agent', history: [] } });
   await store.writeTask(db, 'owner', { op: 'put', id: 'f1', data: { board: 'harbor', key: 'HBR-1', title: 'Harbor card', status: 'todo', kind: 'agent', history: [] } });
-  await store.writeTask(db, 'owner', { op: 'put', id: 't1', data: { board: 'test-diner', key: 'TDN-1', title: 'Diner card', status: 'doing', kind: 'production', history: [] } });
+  await store.writeTask(db, 'owner', { op: 'put', id: 't1', data: { board: 'acme-plumbing', key: 'TDN-1', title: 'Diner card', status: 'doing', kind: 'production', history: [] } });
   const call = async (claims, method, p, body) => {
     const req = new Request(`https://board.example.com/api/v1${p}`, { method, body: body ? JSON.stringify(body) : undefined, headers: { 'content-type': 'application/json' } });
     let res;
@@ -84,8 +84,8 @@ test('TASK-39: a bound token sees and writes its own board only, on every route'
   const { call, ver } = await setup();
   const C = as('cloudtd.access');
   const who = await call(C, 'GET', '/whoami');
-  assert.deepEqual([who.body.principal, who.body.scope], ['cloud-worker', 'test-diner']);
-  assert.deepEqual((await call(C, 'GET', '/boards')).body.boards.map((b) => b.id), ['test-diner']);
+  assert.deepEqual([who.body.principal, who.body.scope], ['cloud-worker', 'acme-plumbing']);
+  assert.deepEqual((await call(C, 'GET', '/boards')).body.boards.map((b) => b.id), ['acme-plumbing']);
   assert.deepEqual((await call(C, 'GET', '/tasks')).body.tasks.map((t) => t.data.key), ['TDN-1']);
   assert.equal((await call(C, 'GET', '/tasks?board=main')).status, 403);
   assert.equal((await call(C, 'GET', '/tasks/m1')).status, 403);
@@ -94,7 +94,7 @@ test('TASK-39: a bound token sees and writes its own board only, on every route'
   const ASK = { ask: { kind: 'decide', text: 'Which hours?' } };
   const other = await call(C, 'PATCH', '/tasks/m1', { ifVersion: ver('m1'), data: ASK });
   assert.equal(other.status, 403);
-  assert.match(other.body.error, /bound to board test-diner/);
+  assert.match(other.body.error, /bound to board acme-plumbing/);
   assert.equal((await call(C, 'POST', '/tasks/batch', { writes: [{ op: 'patch', id: 'f1', ifVersion: ver('f1'), data: ASK }] })).status, 403);
   assert.equal((await call(C, 'PUT', '/tasks/new1', { data: { board: 'main', key: 'TASK-99', title: 'x', status: 'todo', kind: 'agent', history: [] } })).status, 403);
   assert.equal((await call(C, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { board: 'harbor' } })).status, 403);
@@ -108,13 +108,13 @@ test('TASK-39: a bound token sees and writes its own board only, on every route'
   assert.equal((await call(C, 'POST', '/counters/TDN/next')).status, 403, 'read only: no new ticket numbers for a token');
   assert.equal((await call(OWNER, 'POST', '/counters/TDN/next')).status, 200);
   assert.equal((await call(C, 'GET', '/activity?board=main')).status, 403);
-  assert.ok((await call(C, 'GET', '/activity')).body.entries.every((e) => e.board === 'test-diner'));
+  assert.ok((await call(C, 'GET', '/activity')).body.entries.every((e) => e.board === 'acme-plumbing'));
   assert.equal((await call(C, 'POST', '/sync', { board: 'main' })).status, 403);
   assert.equal((await call(C, 'PUT', '/boards/x', { data: { name: 'x', prefix: 'XX' } })).status, 403);
   assert.equal((await call(C, 'POST', '/generate', { board: 'main', text: 'x' })).status, 403);
   assert.equal((await call(C, 'GET', '/principals')).status, 403);
   const snap = await call(C, 'GET', '/snapshot?github=0');
-  assert.match(snap.body.text, /^scope: board test-diner$/m);
+  assert.match(snap.body.text, /^scope: board acme-plumbing$/m);
   assert.match(snap.body.text, /^counters next: TDN 11$/m);
   assert.doesNotMatch(snap.body.text, /TASK-1|HBR-1|Main card|Harbor card/);
 });
@@ -145,10 +145,10 @@ test('TASK-38: the go, production, nudge and deploy fields are guarded on the AP
   for (const who of [C, J, OWNER]) {
     assert.equal((await call(who, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { gates: { ownerGo: true } } })).status, 403);
   }
-  assert.equal((await call(J, 'PUT', '/tasks/t9', { data: { board: 'test-diner', key: 'TDN-9', title: 'x', status: 'todo', kind: 'production', gates: { ownerGo: true }, history: [] } })).status, 403, 'a create cannot carry a go');
-  assert.equal((await call(J, 'PUT', '/tasks/t8', { seedVersion: 3, data: { board: 'test-diner', key: 'TDN-8', title: 'x', status: 'todo', kind: 'production', history: [] } })).status, 403, 'read only: worker no longer imports');
+  assert.equal((await call(J, 'PUT', '/tasks/t9', { data: { board: 'acme-plumbing', key: 'TDN-9', title: 'x', status: 'todo', kind: 'production', gates: { ownerGo: true }, history: [] } })).status, 403, 'a create cannot carry a go');
+  assert.equal((await call(J, 'PUT', '/tasks/t8', { seedVersion: 3, data: { board: 'acme-plumbing', key: 'TDN-8', title: 'x', status: 'todo', kind: 'production', history: [] } })).status, 403, 'read only: worker no longer imports');
   assert.equal((await call(OWNER, 'PUT', '/tasks/t1', { seedVersion: 1, ifVersion: ver('t1'), data: { ...card('t1'), gates: { ownerGo: true, ownerGoAt: 'forged' } } })).status, 409, 'an import never overwrites a card');
-  assert.equal((await call(OWNER, 'PUT', '/tasks/t8', { seedVersion: 3, data: { board: 'test-diner', key: 'TDN-8', title: 'x', status: 'todo', kind: 'production', gates: { ownerGo: true }, history: [] } })).status, 403, 'an import passes the guard');
+  assert.equal((await call(OWNER, 'PUT', '/tasks/t8', { seedVersion: 3, data: { board: 'acme-plumbing', key: 'TDN-8', title: 'x', status: 'todo', kind: 'production', gates: { ownerGo: true }, history: [] } })).status, 403, 'an import passes the guard');
   assert.equal((await call(C, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { kind: 'agent' } })).status, 403);
   // The go through the approve path, then the deploy claim by the repo workflow only, set once.
   assert.equal((await call(J, 'POST', '/tasks/t1/approve', { decision: 'approve', as: 'go' })).status, 200);
@@ -186,7 +186,7 @@ test('read only (): on the API an agent write is refused, an agent ask is allowe
   assert.equal((await call(J, 'PATCH', '/tasks/m1', { ifVersion: ver('m1'), data: { ask: null } })).status, 200);
   assert.equal(card('m1').ask, undefined);
   // The repository workflow keeps recording what GitHub says happened to the pull request.
-  assert.equal((await call(G, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { status: 'review', evidence: { pr: 'https://github.com/example-org/test-diner/pull/3', checks: 'PR checks: success' } } })).status, 200);
+  assert.equal((await call(G, 'PATCH', '/tasks/t1', { ifVersion: ver('t1'), data: { status: 'review', evidence: { pr: 'https://github.com/example-org/acme-plumbing/pull/3', checks: 'PR checks: success' } } })).status, 200);
   // Owner writes anything.
   assert.equal((await call(OWNER, 'PATCH', '/tasks/m1', { ifVersion: ver('m1'), data: { status: 'doing', note: 'Owner is on it' } })).status, 200);
   assert.equal(card('m1').note, 'Owner is on it');
@@ -221,33 +221,33 @@ test('TASK-66: pause_board is for Owner and his connectors; reads show it; a boa
     return { error: r.isError === true, text: r.content[0].text };
   };
   for (const who of ['lane1', 'cloud-worker', 'github-actions', 'runner', 'reader']) {
-    const r = await tool(who, 'pause_board', { board: 'test-diner', paused: true });
+    const r = await tool(who, 'pause_board', { board: 'acme-plumbing', paused: true });
     assert.ok(r.error && /^403: pause_board is for Owner/.test(r.text), who);
   }
-  const proxy = await tool('agent', 'pause_board', { board: 'test-diner', paused: true });
+  const proxy = await tool('agent', 'pause_board', { board: 'acme-plumbing', paused: true });
   assert.ok(proxy.error && /^403: the board is read only for agent/.test(proxy.text));
-  assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('test-diner').data).paused, undefined, 'refused presses wrote nothing');
+  assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('acme-plumbing').data).paused, undefined, 'refused presses wrote nothing');
   assert.ok((await tool('owner', 'pause_board', { board: 'nope', paused: true })).text.startsWith('404'));
-  assert.ok((await tool('owner', 'pause_board', { board: 'test-diner', paused: 'yes' })).text.startsWith('400'));
-  const p = JSON.parse((await tool('owner', 'pause_board', { board: 'test-diner', paused: true, reason: 'one lane test' })).text);
-  assert.deepEqual([p.board, p.paused, p.pauseSetBy, p.pauseReason], ['test-diner', true, 'owner', 'one lane test']);
+  assert.ok((await tool('owner', 'pause_board', { board: 'acme-plumbing', paused: 'yes' })).text.startsWith('400'));
+  const p = JSON.parse((await tool('owner', 'pause_board', { board: 'acme-plumbing', paused: true, reason: 'one lane test' })).text);
+  assert.deepEqual([p.board, p.paused, p.pauseSetBy, p.pauseReason], ['acme-plumbing', true, 'owner', 'one lane test']);
   assert.ok(p.pauseSetAt);
   assert.match(p.note, /not disabled/);
   const boards = JSON.parse((await tool('lane1', 'list_boards', {})).text);
-  assert.deepEqual(boards.map((b) => [b.id, b.paused]).sort(), [['harbor', false], ['main', false], ['test-diner', true]]);
-  assert.equal(boards.find((b) => b.id === 'test-diner').pauseSetBy, 'owner');
+  assert.deepEqual(boards.map((b) => [b.id, b.paused]).sort(), [['acme-plumbing', true], ['harbor', false], ['main', false]]);
+  assert.equal(boards.find((b) => b.id === 'acme-plumbing').pauseSetBy, 'owner');
   assert.equal(JSON.parse((await tool('lane1', 'get_card', { key: 'TDN-1' })).text).boardPaused, true);
   assert.equal(JSON.parse((await tool('lane1', 'get_card', { key: 'HBR-1' })).text).boardPaused, undefined);
-  const log = db.raw.prepare('SELECT who, what FROM board_history_log WHERE task_id = ?').all('board:test-diner');
+  const log = db.raw.prepare('SELECT who, what FROM board_history_log WHERE task_id = ?').all('board:acme-plumbing');
   assert.deepEqual(log.map((l) => [l.who, l.what]), [['owner', 'board paused by Owner: one lane test']]);
   // A board edit cannot clear the pause, and cannot set one on another tab. Only Owner edits a board now.
   const J = as('jarv.access');
-  assert.equal((await call(J, 'PUT', '/boards/test-diner', { ifVersion: 2, data: { name: 'Test Diner', prefix: 'TDN', order: 1, paused: false } })).status, 403, 'read only for worker');
-  assert.equal((await call(OWNER, 'PUT', '/boards/test-diner', { ifVersion: 2, data: { name: 'Test Diner', prefix: 'TDN', order: 1, paused: false } })).status, 200);
-  assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('test-diner').data).paused, true);
+  assert.equal((await call(J, 'PUT', '/boards/acme-plumbing', { ifVersion: 2, data: { name: 'Acme Plumbing', prefix: 'TDN', order: 1, paused: false } })).status, 403, 'read only for worker');
+  assert.equal((await call(OWNER, 'PUT', '/boards/acme-plumbing', { ifVersion: 2, data: { name: 'Acme Plumbing', prefix: 'TDN', order: 1, paused: false } })).status, 200);
+  assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('acme-plumbing').data).paused, true);
   assert.equal((await call(OWNER, 'PUT', '/boards/harbor', { ifVersion: 1, data: { name: 'harbor', prefix: 'HBR', order: 1, paused: true } })).status, 200);
   assert.equal(JSON.parse(db.raw.prepare('SELECT data FROM board_boards WHERE id = ?').get('harbor').data).paused, undefined);
-  const r = JSON.parse((await tool('owner', 'pause_board', { board: 'test-diner', paused: false })).text);
+  const r = JSON.parse((await tool('owner', 'pause_board', { board: 'acme-plumbing', paused: false })).text);
   assert.deepEqual([r.paused, r.pauseSetBy], [false, 'owner']);
   assert.match(r.note, /nothing was fired/);
 });

@@ -16,11 +16,14 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 
-const MODULE_NAMES = ['start', 'github', 'production', 'generate', 'tabs'];
+const MODULE_NAMES = ['start', 'github', 'production', 'generate', 'tabs', 'pulse'];
 const GENERATOR_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const COMPAT_DATE = '2026-07-01';
 const FIRST_BOARD = 'main';
 const FIRST_PREFIX = 'TASK';
+// The first board is a project from the start: started today, no target, and four generic milestones the owner renames
+// or replaces from the board header. A card names one of them in its milestone field.
+const FIRST_MILESTONES = ['Plan', 'Build', 'Review', 'Launch'];
 
 const DEFAULTS = Object.freeze({
   ownerName: 'Owner',
@@ -35,7 +38,7 @@ const DEFAULTS = Object.freeze({
   lanes: ['main'],
   mentionNames: ['agent'],
   githubOrgs: [],
-  modules: { start: false, github: false, production: false, generate: false, tabs: false },
+  modules: { start: false, github: false, production: false, generate: false, tabs: false, pulse: false },
   runUrl: '',
 });
 
@@ -246,6 +249,8 @@ function buildWranglerToml(config, host) {
     `database_name = ${tomlStr(c.databaseName)}`,
     `database_id = ${tomlStr(c.databaseId)}`,
   );
+  // The ten minute run: Pulse's claims checker, and the GitHub module's sync as principal cron.
+  if (c.modules.pulse || c.modules.github) lines.push('', '[triggers]', 'crons = ["*/10 * * * *"]');
   if (c.modules.generate) lines.push('', '[ai]', 'binding = "AI"');
   const url = `https://${host}`;
   lines.push(
@@ -253,6 +258,7 @@ function buildWranglerToml(config, host) {
     '[vars]',
     `AUTH_MODE = ${tomlStr(c.auth.mode)}`,
     `API_HOST = ${tomlStr(host)}`,
+    'BOARD_TZ = "UTC"',
     `MCP_HOST = ${tomlStr(host)}`,
     `MCP_ISSUER = ${tomlStr(url)}`,
     `BOARD_URL = ${tomlStr(url)}`,
@@ -352,6 +358,7 @@ async function askForConfig(ask, base) {
   modules.production = await yn('Turn on the Production module (deploy approvals)', b.modules.production);
   modules.generate = await yn('Turn on the Generate module (needs Workers AI)', b.modules.generate);
   modules.tabs = await yn('Turn on the Tabs module (more than one board)', b.modules.tabs);
+  modules.pulse = await yn('Turn on the Pulse module (connections, call stream, stuck work, claim checks)', b.modules.pulse);
   const githubOrgs = modules.github ? await ask('GitHub organizations or users, comma separated', b.githubOrgs.join(',')) : '';
   const runUrl = modules.start ? await ask('Run webhook address (https://..., blank to skip)', b.runUrl) : '';
   return normalizeConfig({ ...base, ownerName, agentLabel, workerName, databaseName, domain: { mode, hostname }, auth, agents, lanes, modules, githubOrgs, runUrl });
@@ -565,7 +572,7 @@ async function runSetup(options = {}) {
       if (have) out('Step 10: the first board already exists, left as it is');
       else {
         out('Step 10: create the first board and a welcome card');
-        let x = await call('PUT', `/boards/${FIRST_BOARD}`, { data: { name: 'Main', prefix: FIRST_PREFIX } });
+        let x = await call('PUT', `/boards/${FIRST_BOARD}`, { data: { name: 'Main', prefix: FIRST_PREFIX, kind: 'internal', start: new Date().toISOString().slice(0, 10), target: '', milestones: FIRST_MILESTONES.map((name) => ({ id: name.toLowerCase(), name, start: '', end: '' })) } });
         if (x.status !== 200) { err(`Creating the board failed (HTTP ${x.status}).`); return result(1); }
         x = await call('PUT', `/counters/${FIRST_PREFIX}`, { next: 1 });
         if (x.status !== 200) { err(`Seeding the counter failed (HTTP ${x.status}).`); return result(1); }

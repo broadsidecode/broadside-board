@@ -198,7 +198,8 @@ export function createOAuth(env, fetchImpl = fetch) {
     if (!redirectOk) return { status: 400, error: 'invalid_request', error_description: 'redirect_uri is not allowed' };
     if (q.code_challenge_method !== 'S256' || !q.code_challenge) return { status: 400, error: 'invalid_request', error_description: 'PKCE S256 code_challenge is required' };
     if (!(await validateBootstrap(q.bootstrap_code))) return { status: 403, error: 'access_denied', error_description: 'Owner bootstrap approval is required' };
-    if (!MCP_PRINCIPALS.includes(q.principal)) return { status: 400, error: 'invalid_request', error_description: `principal must be one of ${MCP_PRINCIPALS.join(', ')}` };
+    const allowed = MCP_PRINCIPALS;
+    if (!allowed.includes(q.principal)) return { status: 400, error: 'invalid_request', error_description: `principal must be one of ${allowed.join(', ')}` };
     if (!signingKey) return { status: 500, error: 'server_error', error_description: 'signing key not configured' };
     const code = randomToken('code');
     const record = { clientId: client.client_id, redirectUri: q.redirect_uri, codeChallenge: q.code_challenge, principal: q.principal };

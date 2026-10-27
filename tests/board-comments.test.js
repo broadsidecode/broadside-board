@@ -133,7 +133,7 @@ test('mcp: add_card and release_card take a lane; lane1 stays the default and a 
 });
 
 // ---- @mentions ()
-const ENV_RUNS = { BOARD_RUNS: JSON.stringify({ 'main:worker': 'trig_j', 'test-diner': 'trig_t' }), RUN_TOKEN_MAIN: 'tm', RUN_TOKEN_TEST_DINER: 'tt' };
+const ENV_RUNS = { BOARD_RUNS: JSON.stringify({ 'main:worker': 'trig_j', 'acme-plumbing': 'trig_t' }), RUN_TOKEN_MAIN: 'tm', RUN_TOKEN_ACME_PLUMBING: 'tt' };
 function firing(env, calls) {
   return { ...env, fetchImpl: async (url, init) => { calls.push({ url, body: JSON.parse(init.body) }); return { ok: true, status: 200, json: async () => ({ claude_code_session_url: 'https://claude.ai/code/cse_x' }) }; } };
 }
@@ -209,7 +209,7 @@ test('mcp: @lane1 on main is not wired (history says so, one try); @agent never 
 
 test('mcp: @worker on a customer tab wakes the Worker project; the customer run never takes it; a second question waits its turn', async () => {
   const mcp = await import(src('mcp.js'));
-  const db = fakeDb([card({ board: 'test-diner', key: 'TDN-3', status: 'review' })]);
+  const db = fakeDb([card({ board: 'acme-plumbing', key: 'TDN-3', status: 'review' })]);
   const calls = [];
   const env = firing({ DB: db, HANDBOOK: 'x', ...ENV_RUNS }, calls);
   const call = async (name, args, who = 'owner') => {
@@ -219,9 +219,9 @@ test('mcp: @worker on a customer tab wakes the Worker project; the customer run 
   };
   await call('add_comment', { key: 'TDN-3', text: '@worker why is this in review?' }, 'owner');
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /routines\/trig_j\/fire$/, 'the Worker project, not the Test Diner one');
-  assert.match(await call('open_mentions', { board: 'test-diner' }), /No open mentions on test-diner/, 'the customer run leaves @worker alone');
-  assert.match(await call('open_mentions', { lane: 'worker' }), /^test-diner TDN-3 \[review\] .*@worker asked by owner/);
+  assert.match(calls[0].url, /routines\/trig_j\/fire$/, 'the Worker project, not the Acme Plumbing one');
+  assert.match(await call('open_mentions', { board: 'acme-plumbing' }), /No open mentions on acme-plumbing/, 'the customer run leaves @worker alone');
+  assert.match(await call('open_mentions', { lane: 'worker' }), /^acme-plumbing TDN-3 \[review\] .*@worker asked by owner/);
   await call('add_comment', { key: 'TDN-3', text: '@worker and who approved it?' }, 'owner');
   assert.equal(calls.length, 1, 'the second question does not fire a second run while the first is open');
   assert.match(await call('open_mentions', { lane: 'worker' }), /why is this in review\? \(1 more waiting after this one\)/);
@@ -238,7 +238,7 @@ test('mcp: @worker on a customer tab wakes the Worker project; the customer run 
 
 test('mcp: a late answer to A cannot close B, and missing IDs cannot guess a later question', async () => {
   const mcp = await import(src('mcp.js'));
-  const db = fakeDb([card({ board: 'test-diner', key: 'TDN-3', status: 'review' })]);
+  const db = fakeDb([card({ board: 'acme-plumbing', key: 'TDN-3', status: 'review' })]);
   const calls = [];
   const env = firing({ DB: db, HANDBOOK: 'x', ...ENV_RUNS }, calls);
   const call = async (name, args, who = 'owner') => (await mcp.handleRpc(env, who, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })).json;

@@ -12,7 +12,7 @@ globalThis.__BOARD_CONFIG__ = {
   lanes: ['lane1', 'lane2', 'lane3', 'worker'],
   roles: ['reviewer', 'builder', 'lane1', 'lane2', 'lane3', 'deployer', 'designer'],
   githubOrgs: ['example-org'],
-  modules: { start: true, github: true, production: true, generate: true, tabs: true },
+  modules: { start: true, github: true, production: true, generate: true, tabs: true, pulse: true },
 };
 
 // Lets worker/src/index.js import HANDBOOK.md as text under Node (hooks live in md-loader.mjs).

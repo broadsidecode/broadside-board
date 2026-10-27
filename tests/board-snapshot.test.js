@@ -10,9 +10,9 @@ const { pathToFileURL } = require('node:url');
 
 const src = (f) => pathToFileURL(path.join(__dirname, '..', 'worker', 'src', f)).href;
 const NOW = '2026-10-23T12:00:00.000Z';
-const PR11 = 'https://github.com/example-org/test-diner/pull/11';
-const PR12 = 'https://github.com/example-org/test-diner/pull/12';
-const PR13 = 'https://github.com/example-org/test-diner/pull/13';
+const PR11 = 'https://github.com/example-org/acme-plumbing/pull/11';
+const PR12 = 'https://github.com/example-org/acme-plumbing/pull/12';
+const PR13 = 'https://github.com/example-org/acme-plumbing/pull/13';
 
 const row = (id, data, version = 1) => ({ id, version, updated_at: NOW, data: JSON.stringify(data) });
 
@@ -33,15 +33,15 @@ function fakeDb(boards, tasks, counters) {
   };
 }
 
-const boards = [row('main', { name: 'Main', prefix: 'KIT', order: 0 }), row('test-diner', { name: 'Test Diner', prefix: 'TDN', order: 1 })];
+const boards = [row('main', { name: 'Main', prefix: 'KIT', order: 0 }), row('acme-plumbing', { name: 'Acme Plumbing', prefix: 'TDN', order: 1 })];
 const counters = [{ id: 'KIT', next: 30, version: 3 }, { id: 'TDN', next: 15, version: 2 }];
 
 const tdn14 = {
-  board: 'test-diner', key: 'TDN-14', num: 14, title: 'Apply Jiro Template', status: 'review', kind: 'agent', lane: 'lane1',
+  board: 'acme-plumbing', key: 'TDN-14', num: 14, title: 'Apply Jiro Template', status: 'review', kind: 'agent', lane: 'lane1',
   owner: 'reviewer', priority: 100, note: 'Awaiting merge', needsOwner: true, createdBy: 'agent', touchedBy: ['agent', 'worker'],
   workType: 'newPage', skillsRequired: ['noslop'], skillsUsed: ['noslop', 'frontend-design'],
   doneCriteria: [{ text: 'Template applied', done: true }, { text: 'Adapted to the diner', done: false }],
-  evidence: { pr: PR11, preview: 'https://pr-11.test-diner.pages.dev', checks: 'pass' },
+  evidence: { pr: PR11, preview: 'https://pr-11.acme-plumbing.pages.dev', checks: 'pass' },
   gates: { reviewer: { verdict: 'PASS', at: '2026-10-23T04:33:39.000Z' } },
   ask: { kind: 'merge', text: 'Merge pull request 11', pr: PR11, by: 'reviewer', at: '2026-10-23T05:00:00Z' },
   questions: [{ q: 'Hours clock?', by: 'builder' }],
@@ -95,7 +95,7 @@ test('GitHub facts retain the full PR head for merge checks while snapshot can s
     /\/pulls\/11$/.test(url) ? { state: 'open', merged: false, head: { sha: head } } :
       /actions\/runs/.test(url) ? { workflow_runs: [{ name: 'PR checks', workflow_id: 1, head_sha: head, status: 'completed', conclusion: 'success' }] } : []
   ) });
-  const facts = await fetchPrFacts(env, { owner: 'example-org', repo: 'test-diner', number: 11 }, fetchImpl);
+  const facts = await fetchPrFacts(env, { owner: 'example-org', repo: 'acme-plumbing', number: 11 }, fetchImpl);
   assert.equal(facts.headFull, head);
   assert.equal(facts.head, head.slice(0, 7));
 });
@@ -112,7 +112,7 @@ test('snapshot has the sections, header counts and a known card block', async ()
   assert.match(text, /\nCARD TDN-14\n/);
   assert.match(text, /  done criteria: 1 of 2\n  unmet: Adapted to the diner/);
   assert.match(text, /  gate reviewer: PASS at 2026-10-23T04:33:39.000Z/);
-  assert.match(text, /  evidence pr: https:\/\/github.com\/example-org\/test-diner\/pull\/11/);
+  assert.match(text, /  evidence pr: https:\/\/github.com\/example-org\/acme-plumbing\/pull\/11/);
   assert.match(text, /question: Hours clock\?/);
   assert.match(text, /counters next: KIT 30, TDN 15/);
   assert.match(text, /done TASK-23: Merge board sync merged 6a5d28f/);
@@ -128,7 +128,7 @@ test('cross check: TDN-14 mismatches on Reviewer, TASK-23 matches, GitHub failur
   const { buildSnapshot } = await import(src('snapshot.js'));
   const text = await buildSnapshot(env, 'worker', { now: NOW, fetchImpl: ghFetch() });
   const x = text.slice(text.indexOf('== GITHUB CROSS CHECK =='));
-  assert.match(x, /PR example-org\/test-diner#11/);
+  assert.match(x, /PR example-org\/acme-plumbing#11/);
   assert.match(x, /github reviewer comment: FAIL at 2026-10-23T04:50:00Z/);
   assert.match(x, /MISMATCH TDN-14: card says Reviewer PASS but the last Reviewer comment on GitHub is FAIL/);
   assert.match(x, /github task file: tasks\/apply-jiro.json/);
@@ -136,7 +136,7 @@ test('cross check: TDN-14 mismatches on Reviewer, TASK-23 matches, GitHub failur
   assert.match(bsc, /github: state closed, merged yes/);
   assert.match(bsc, /no mismatch/);
   assert.ok(!bsc.includes('MISMATCH'));
-  assert.match(x, /PR example-org\/test-diner#13[\s\S]*github: GitHub call failed \(http 404\)/);
+  assert.match(x, /PR example-org\/acme-plumbing#13[\s\S]*github: GitHub call failed \(http 404\)/);
   assert.match(x, /MISMATCH TASK-25: card is in review but has no pull request/);
 });
 
@@ -167,7 +167,7 @@ test('checks come from the workflow runs, in four GitHub calls per pull request'
       { name: 'checks', workflow_id: 1, status: 'completed', conclusion: 'failure', created_at: '2026-10-24T00:00:00Z' },
     ] } },
   });
-  const facts = await fetchPrFacts(env, { owner: 'example-org', repo: 'test-diner', number: 11 }, f);
+  const facts = await fetchPrFacts(env, { owner: 'example-org', repo: 'acme-plumbing', number: 11 }, f);
   assert.equal(facts.checks, 'failure');
   assert.equal(facts.checkCount, 2);
   assert.ok(f.calls.some((u) => /actions\/runs\?head_sha=b5ba892aaaa/.test(u)));
@@ -218,8 +218,8 @@ test('a missing token or a GitHub outage still returns the rest', async () => {
 test('board filter limits the cards', async () => {
   const { buildSnapshot } = await import(src('snapshot.js'));
   const e = { DB: fakeDb(boards, [row('a', tdn14)], counters) };
-  const text = await buildSnapshot(e, 'owner', { now: NOW, board: 'test-diner', github: false });
-  assert.match(text, /scope: board test-diner/);
+  const text = await buildSnapshot(e, 'owner', { now: NOW, board: 'acme-plumbing', github: false });
+  assert.match(text, /scope: board acme-plumbing/);
   assert.ok(!text.includes('BOARD main'));
 });
 

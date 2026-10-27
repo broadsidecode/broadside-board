@@ -19,6 +19,8 @@ export const BOARD_INSTRUCTIONS = [
   "",
   "Updating: always get_card first and pass its version as ifVersion to update_card. A version conflict means someone else wrote; read again and redo. Change only the fields you mean to change.",
   "",
+  "How far along a project is: call project_status (or read the Projects lines at the end of whats_waiting and in snapshot) instead of reading its cards. A tab is a project with milestones; a card names its milestone in milestone. Percent and milestone status are worked out from the cards. Milestone dates and project dates are the owner's.",
+  "",
   "Asking for an approval: set ask {kind, text, pr, by} on the card with update_card (by is the role raising it, so the owner sees who is asking). Kinds: go with text like Go for production (only the owner gives it), and the card shows a red button on the board for it; answer or decide with the question in text; design to approve a design; merge with text like Merge pull request 11 and pr the pull request URL. Never ask in chat alone; the card is where the owner looks.",
   "",
   "Bots raise asks with ask_owner (key, kind, text, pr, by); it sets the same ask as update_card.",

@@ -10,7 +10,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const src = (f) => pathToFileURL(path.join(__dirname, '..', 'worker', 'src', f)).href;
-const PR = 'https://github.com/example-org/test-diner/pull/21';
+const PR = 'https://github.com/example-org/acme-plumbing/pull/21';
 
 function fakeDb() {
   const rows = new Map();
@@ -44,9 +44,9 @@ const deny = (status, re) => (e) => e.status === status && re.test(e.message);
 async function setup() {
   const store = await import(src('store.js'));
   const db = fakeDb();
-  await store.writeTask(db, 'owner', { op: 'put', id: 'p', data: { board: 'test-diner', key: 'TDN-30', title: 'Deploy', status: 'todo', kind: 'production', gates: { ownerGo: '' }, history: [] } });
+  await store.writeTask(db, 'owner', { op: 'put', id: 'p', data: { board: 'acme-plumbing', key: 'TDN-30', title: 'Deploy', status: 'todo', kind: 'production', gates: { ownerGo: '' }, history: [] } });
   // evidence.rollback is on the card because the test below raises a merge ask on it.
-  await store.writeTask(db, 'owner', { op: 'put', id: 'a', data: { board: 'test-diner', key: 'TDN-31', title: 'Build', status: 'doing', kind: 'agent', history: [], evidence: { reviewedHead: 'a'.repeat(40), checks: `pass (1 runs on ${'a'.repeat(40)}, synced from GitHub)`, rollback: { to: 'before TDN-31', how: 'revert', cannot: 'nothing' } }, gates: { reviewer: { verdict: 'PASS', sha: 'a'.repeat(40) } }, roles: { builder: { name: 'builder', state: 'working', startedAt: 'T1', notes: 'n' } } } });
+  await store.writeTask(db, 'owner', { op: 'put', id: 'a', data: { board: 'acme-plumbing', key: 'TDN-31', title: 'Build', status: 'doing', kind: 'agent', history: [], evidence: { reviewedHead: 'a'.repeat(40), checks: `pass (1 runs on ${'a'.repeat(40)}, synced from GitHub)`, rollback: { to: 'before TDN-31', how: 'revert', cannot: 'nothing' } }, gates: { reviewer: { verdict: 'PASS', sha: 'a'.repeat(40) } }, roles: { builder: { name: 'builder', state: 'working', startedAt: 'T1', notes: 'n' } } } });
   await store.writeTask(db, 'owner', { op: 'put', id: 'm', data: { board: 'main', key: 'TASK-90', title: 'Main card', status: 'todo', kind: 'agent', history: [] } });
   return { store, db };
 }
@@ -64,7 +64,7 @@ test('TASK-38: no write sets the go; production, nudge and poke fields are guard
     await assert.rejects(store.writeTask(db, 'cloud-worker', { op: 'patch', id: 'a', ifVersion: ver(db, 'a'), data }), deny(403, /read only for cloud-worker/));
   }
   await assert.rejects(store.writeTask(db, 'github-actions', { op: 'patch', id: 'p', ifVersion: ver(db, 'p'), data: { kind: 'agent' } }), deny(403, /read only/));
-  await assert.rejects(store.writeTask(db, 'cloud-worker', { op: 'put', id: 'n', data: { board: 'test-diner', key: 'TDN-32', title: 'x', status: 'todo', kind: 'production', history: [] } }), deny(403, /read only/));
+  await assert.rejects(store.writeTask(db, 'cloud-worker', { op: 'put', id: 'n', data: { board: 'acme-plumbing', key: 'TDN-32', title: 'x', status: 'todo', kind: 'production', history: [] } }), deny(403, /read only/));
   // The batch route goes through the same guard.
   await assert.rejects(store.writeBatch(db, 'cloud-worker', [{ op: 'patch', id: 'p', ifVersion: ver(db, 'p'), data: { gates: { ownerGoAt: 'now' } } }], false), deny(403, /read only/));
   await assert.rejects(store.writeBatch(db, 'owner', [{ op: 'patch', id: 'p', ifVersion: ver(db, 'p'), data: { gates: { ownerGoAt: 'now' } } }], true), deny(403, /ownerGoAt/));
@@ -112,18 +112,18 @@ test('TASK-38: the go is given once; a second press keeps the first time; the me
 test('TASK-39: a board-bound token reads and writes its own board only', async () => {
   const { store, db } = await setup();
   const lib = await import(src('lib.js'));
-  assert.deepEqual(lib.splitPrincipal('cloud-worker@test-diner'), { principal: 'cloud-worker', scope: 'test-diner' });
-  assert.deepEqual(lib.splitPrincipal('github-actions@test-diner'), { principal: 'github-actions', scope: 'test-diner' });
+  assert.deepEqual(lib.splitPrincipal('cloud-worker@acme-plumbing'), { principal: 'cloud-worker', scope: 'acme-plumbing' });
+  assert.deepEqual(lib.splitPrincipal('github-actions@acme-plumbing'), { principal: 'github-actions', scope: 'acme-plumbing' });
   assert.deepEqual(lib.splitPrincipal('someone@example.com'), { principal: 'someone@example.com', scope: '' }, 'an email is never read as a board');
   assert.deepEqual(lib.splitPrincipal('worker'), { principal: 'worker', scope: '' });
   assert.deepEqual(lib.SCOPED_WORKERS, ['cloud-worker', 'github-actions']);
-  const scope = { scope: 'test-diner' };
+  const scope = { scope: 'acme-plumbing' };
   // The one write a bound token keeps, an ask, still stays on its own board.
   const ask = { ask: { kind: 'decide', text: 'Which photo?' } };
-  await assert.rejects(store.writeTask(db, 'cloud-worker', { op: 'patch', id: 'm', ifVersion: ver(db, 'm'), data: ask }, scope), deny(403, /bound to board test-diner and cannot change a card on main/));
+  await assert.rejects(store.writeTask(db, 'cloud-worker', { op: 'patch', id: 'm', ifVersion: ver(db, 'm'), data: ask }, scope), deny(403, /bound to board acme-plumbing and cannot change a card on main/));
   await assert.rejects(store.writeTask(db, 'cloud-worker', { op: 'patch', id: 'a', ifVersion: ver(db, 'a'), data: { board: 'main' } }, scope), deny(403, /read only/));
   await assert.rejects(store.writeTask(db, 'cloud-worker', { op: 'put', id: 'z', data: { board: 'main', key: 'TASK-91', title: 'x', status: 'todo', kind: 'agent', history: [] } }, scope), deny(403, /read only/));
-  await assert.rejects(store.writeBatch(db, 'github-actions', [{ op: 'patch', id: 'm', ifVersion: ver(db, 'm'), data: ask }], false, scope), deny(403, /bound to board test-diner/));
+  await assert.rejects(store.writeBatch(db, 'github-actions', [{ op: 'patch', id: 'm', ifVersion: ver(db, 'm'), data: ask }], false, scope), deny(403, /bound to board acme-plumbing/));
   await store.writeTask(db, 'cloud-worker', { op: 'patch', id: 'a', ifVersion: ver(db, 'a'), data: ask }, scope);
   assert.equal(read(db, 'a').ask.text, 'Which photo?');
   // Sync runs with the caller's scope too.

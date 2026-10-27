@@ -91,7 +91,11 @@ for (const who of ['owner', 'agent']) {
     assert.equal(out.by, who);
     const row = db.raw.prepare('SELECT data, version FROM board_boards WHERE id = ?').get('acme-plumbing');
     assert.equal(row.version, 1);
-    assert.deepEqual(JSON.parse(row.data), { name: 'Acme Plumbing', prefix: 'ACM', order: 4, projects: { '*': PROJECT } });
+    // A new tab starts as a website project: started today, no target, the seven standard milestones (projects.js).
+    const data = JSON.parse(row.data);
+    const { milestones, ...rest } = data;
+    assert.deepEqual(rest, { name: 'Acme Plumbing', prefix: 'ACM', order: 4, projects: { '*': PROJECT }, kind: 'website', start: new Date().toISOString().slice(0, 10), target: '' });
+    assert.deepEqual(milestones.map((m) => m.id), ['intake', 'design-chosen', 'content-in', 'build', 'preview-approved', 'live', 'handoff']);
     assert.equal(db.raw.prepare('SELECT next FROM board_counters WHERE id = ?').get('ACM').next, 1);
     const hist = db.raw.prepare("SELECT who, task_id, what FROM board_history_log WHERE task_id IN ('board:acme-plumbing', 'counter:ACM')").all();
     assert.equal(hist.length, 2);

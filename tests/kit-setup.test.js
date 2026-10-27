@@ -157,7 +157,7 @@ test('buildWranglerToml for workers-dev, custom, access and generate', () => {
   assert.doesNotMatch(dev, /\[ai\]/);
   for (const k of ['AUTH_MODE = "owner-password"', 'API_HOST = "board.me.workers.dev"', 'MCP_HOST = "board.me.workers.dev"', 'MCP_ISSUER = "https://board.me.workers.dev"', 'BOARD_URL = "https://board.me.workers.dev"']) assert.ok(dev.includes(k), k);
   const mods = dev.match(/^BOARD_MODULES = '(.*)'$/m);
-  assert.deepEqual(JSON.parse(mods[1]), { start: false, github: false, production: false, generate: false, tabs: false });
+  assert.deepEqual(JSON.parse(mods[1]), { start: false, github: false, production: false, generate: false, tabs: false, pulse: false });
   assert.doesNotMatch(dev, /RUN_URL|ACCESS_|GENERATOR_MODEL/);
 
   const custom = S.buildWranglerToml(S.normalizeConfig(baseConfig({ domain: { mode: 'custom', hostname: 'Board.Example.com' }, runUrl: 'https://hooks.example.com/run/{id}' })), 'board.example.com');
@@ -274,7 +274,10 @@ test('happy path runs in the documented order and only hashes reach the secret c
   assert.equal(card.key, 'TASK-1');
   assert.ok(card.note);
   assert.equal(put.init.headers.authorization, `Bearer ${ownerSecret}`);
-  assert.deepEqual(JSON.parse(f.fetches.find((x) => x.url.endsWith('/boards/main')).init.body), { data: { name: 'Main', prefix: 'TASK' } });
+  const mainBoard = JSON.parse(f.fetches.find((x) => x.url.endsWith('/boards/main')).init.body).data;
+  assert.deepEqual([mainBoard.name, mainBoard.prefix, mainBoard.kind, mainBoard.target], ['Main', 'TASK', 'internal', '']);
+  assert.match(mainBoard.start, /^\d{4}-\d{2}-\d{2}$/);
+  assert.deepEqual(mainBoard.milestones.map((m) => m.id), ['plan', 'build', 'review', 'launch']);
   assert.deepEqual(JSON.parse(f.fetches.find((x) => x.url.endsWith('/counters/TASK') && x.method === 'PUT').init.body), { next: 1 });
 
   const saved = JSON.parse(files['board.config.json']);

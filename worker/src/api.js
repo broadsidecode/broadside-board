@@ -14,6 +14,8 @@ import { rollbackCard } from './rollback.js';
 import { startRun, mentionRun } from './run.js';
 import { buildSnapshot } from './snapshot.js';
 import { syncBoard } from './sync.js';
+import { pulseEnabled, pulseRead } from './pulse.js';
+import { portfolioRows, todayIn } from './projects.js';
 
 export const TEXT_HEADERS = { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' };
 
@@ -98,6 +100,12 @@ export async function handleApi(request, env, url, testClaims) {
     return json(200, await mintToken(env, principal, await readJson(request)));
   }
   if (path === '/whoami' && m === 'GET') return json(200, { principal, scope, canWrite, isAdmin });
+  if ((seg = path.match(/^\/pulse\/(connections|stream|stuck|claims)$/)) && m === 'GET') {
+    // Board Pulse (pulse.js): read only, for the admins, never for a board bound token.
+    if (!pulseEnabled(env)) return json(404, { error: 'not found' });
+    if (!isAdmin || scope) throw new HttpError(403, 'Pulse is for worker and owner only');
+    return json(200, await pulseRead(env, seg[1], url.searchParams));
+  }
   if (path === '/principals' && m === 'GET') {
     if (!isAdmin) throw new HttpError(403, 'principals are for worker and owner only');
     const { results } = await db.prepare('SELECT client_id, principal, board, note, created_at, created_by FROM board_principals ORDER BY created_at').all();
@@ -119,7 +127,15 @@ export async function handleApi(request, env, url, testClaims) {
     const entries = await listActivity(db, { since: url.searchParams.get('since') || '', limit: url.searchParams.get('limit') || 100, board: boardFor(url.searchParams.get('board') || '') });
     return json(200, { count: entries.length, entries });
   }
-  if (path === '/boards' && m === 'GET') return json(200, { boards: (await listBoards(db)).filter((b) => !scope || b.id === scope) });
+  if (path === '/portfolio' && m === 'GET') {
+    // The portfolio: one row per tab with percent, counts, milestone states, dates and the project line (projects.js).
+    // A board bound token sees its own tab only.
+    const boards = (await listBoards(db)).filter((b) => !scope || b.id === scope);
+    const cards = (await listTasks(db, scope ? { board: scope } : {})).map((d) => d.data);
+    const today = todayIn(env.BOARD_TZ);
+    return json(200, { today, projects: portfolioRows(boards, cards, today) });
+  }
+  if (path === '/boards' && m === 'GET') return json(200, { today: todayIn(env.BOARD_TZ), boards: (await listBoards(db)).filter((b) => !scope || b.id === scope) });
   if ((seg = path.match(/^\/boards\/([A-Za-z0-9_.-]{1,80})$/)) && m === 'PUT') {
     needWrite();
     if (scope) throw new HttpError(403, 'a board-bound token cannot change boards');
