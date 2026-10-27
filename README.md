@@ -14,6 +14,18 @@ You keep the record of the work and the approvals only you can give. The agent k
 * An installer, `setup.js`, that creates the database, deploys the Worker, makes the secrets and seeds a first card.
 * Tests that run with Node alone.
 
+## Screenshots
+
+Taken from the kit running on its own sample data (two sample businesses, generic names).
+
+![A board tab with milestone bars, columns and cards](docs/assets/board.png)
+
+![The portfolio view: one row per project with percent, milestone squares and dates](docs/assets/portfolio.png)
+
+![Pulse: connections, the call stream, stuck items and checked claims](docs/assets/pulse.png)
+
+![A second tab, reached by its hash](docs/assets/second-tab.png)
+
 ## Install in about five minutes
 
 You need Node 22.5 or newer, a Cloudflare account, and an API token you create yourself. Then:
@@ -32,10 +44,11 @@ Every module is off by default. A module that is off is hidden from the page and
 | Module | What it adds |
 | --- | --- |
 | `start` | A Start button and @mentions that call a webhook you provide, so an agent runner can be woken. Without it, agents poll for new work. |
-| `github` | Pull request links on cards, and checks against the organizations you list. |
+| `github` | Pull request links on cards, and checks against the organizations you list. A scheduled run every ten minutes keeps cards in step with their pull requests. |
 | `production` | Cards for deploys, with risk tiers and a go that only you can give. |
 | `generate` | Turns one sentence into a full card draft. Needs Workers AI on your account. |
 | `tabs` | More than one board in tabs. |
+| `pulse` | A Pulse view for the owner: who is connected, every connector call as it happens, work that looks stuck, and a check of the GitHub pull requests, workflow runs and Pages links that replies and comments cite. It only reads and reports; it never comments on a card. A scheduled run every ten minutes checks claims and deletes call records older than thirty days. |
 
 Turn one on in `board.config.json`, run `node setup.js --apply-config`, then deploy again.
 

@@ -11,6 +11,6 @@
   "lanes": ["main"],
   "mentionNames": ["agent"],
   "githubOrgs": [],
-  "modules": { "start": false, "github": false, "production": false, "generate": false, "tabs": false },
+  "modules": { "start": false, "github": false, "production": false, "generate": false, "tabs": false, "pulse": false },
   "runUrl": ""
 }

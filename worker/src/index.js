@@ -9,6 +9,7 @@ import { json, readJson, accessPrincipal, textResponse, handleApi, JSON_HEADERS 
 // One hostname can serve everything: the connector routes are told apart by path (the API lives under /api/v1).
 const MCP_PATHS = /^\/(mcp|oauth\/|\.well-known\/oauth-)/;
 const isMcpRequest = (url, env) => url.hostname === env.MCP_HOST && (env.MCP_HOST !== env.API_HOST || MCP_PATHS.test(url.pathname));
+import { runScheduled } from './scheduled.js';
 // Single source: handbook/HANDBOOK.md, bundled as text by the [[rules]] entry in wrangler.toml.
 import HANDBOOK from '../../handbook/HANDBOOK.md';
 
@@ -17,7 +18,7 @@ function esc(v) {
   return String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function consentPage(params, error = '') {
+function consentPage(params, error = '', env = {}) {
   const hidden = ['response_type', 'client_id', 'redirect_uri', 'code_challenge', 'code_challenge_method', 'state', 'scope']
     .filter((k) => params[k] != null)
     .map((k) => `<input type="hidden" name="${esc(k)}" value="${esc(params[k])}">`).join('\n');
@@ -67,7 +68,7 @@ async function handleMcpHost(request, env, url) {
     const params = m === 'GET' ? Object.fromEntries(url.searchParams) : await formOrJson(request);
     const r = await oauth.authorize(params);
     if (r.redirect) return new Response(null, { status: 302, headers: { location: r.redirect, 'cache-control': 'no-store' } });
-    if (r.error === 'access_denied') return consentPage(params, params.bootstrap_code ? 'That bootstrap code is not right.' : '');
+    if (r.error === 'access_denied') return consentPage(params, params.bootstrap_code ? 'That bootstrap code is not right.' : '', env);
     return json(r.status, { error: r.error, error_description: r.error_description });
   }
   if (p === '/oauth/token' && m === 'POST') {
@@ -111,6 +112,12 @@ async function handleMcpHost(request, env, url) {
 
 
 export default {
+  // Every ten minutes (the cron in wrangler.toml), scheduled.js: Board Pulse checks the evidence new replies and
+  // comments cite and deletes call log rows older than thirty days; then the GitHub sync and line facts run as
+  // principal cron. Each job has its own try, so one failing never stops the other.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runScheduled(env));
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     try {

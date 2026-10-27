@@ -78,7 +78,7 @@ All commands run from the kit root, the folder that holds `setup.js`.
 | `lanes` | Lanes an agent card can sit in. The first is the default | main |
 | `mentionNames` | Names an @mention can address | agent |
 | `githubOrgs` | GitHub organizations or users whose pull requests the board accepts | none |
-| `modules` | `start`, `github`, `production`, `generate`, `tabs`, each true or false | all false |
+| `modules` | `start`, `github`, `production`, `generate`, `tabs`, `pulse`, each true or false | all false |
 | `runUrl` | Address the Start module posts to. May contain `{id}` | empty |
 
 Advanced, optional: `roles` (names an ask may be signed with, default `reviewer`), `admins` (extra principals that may delete cards) and `scopedWorkers` (writers that must carry a board scope).

@@ -12,9 +12,9 @@ const { parseArgs, listQuery, planWrite, main } = require('../cli/board');
 const { authHeaders, buildRequest, call } = require('../cli/client');
 
 test('parseArgs reads command, positionals and flags', () => {
-  const a = parseArgs(['list', '--board', 'test-diner', '--status', 'review', '--json']);
+  const a = parseArgs(['list', '--board', 'acme-plumbing', '--status', 'review', '--json']);
   assert.equal(a.cmd, 'list');
-  assert.deepEqual(a.flags, { board: 'test-diner', status: 'review', json: true });
+  assert.deepEqual(a.flags, { board: 'acme-plumbing', status: 'review', json: true });
   const p = parseArgs(['patch', 'TDN-5', '--file', 'p.json', '--if-version', '4']);
   assert.deepEqual(p.positional, ['TDN-5']);
   assert.equal(p.flags['if-version'], 4);
@@ -44,7 +44,7 @@ test('planWrite: patch needs an existing card and --if-version', () => {
 });
 
 test('planWrite: set on a new key derives an id and stamps the key', () => {
-  const plan = planWrite('set', 'TDN-12', {}, { title: 'Hours page tweak', board: 'test-diner' }, null, new Date('2026-10-23T10:00:00Z'));
+  const plan = planWrite('set', 'TDN-12', {}, { title: 'Hours page tweak', board: 'acme-plumbing' }, null, new Date('2026-10-23T10:00:00Z'));
   assert.equal(plan.method, 'PUT');
   assert.equal(plan.path, '/tasks/t-20261023-hours-page-tweak');
   assert.equal(plan.body.data.key, 'TDN-12');

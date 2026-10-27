@@ -22,7 +22,7 @@ const CONFIG = {
   // GitHub organizations or users whose pull requests the board accepts. Empty turns the GitHub module off.
   githubOrgs: [],
   // Modules the page and the tool list show. Each is off until the owner turns it on.
-  modules: { start: false, github: false, production: false, generate: false, tabs: false },
+  modules: { start: false, github: false, production: false, generate: false, tabs: false, pulse: false },
 };
 
 export const cfg = { ...CONFIG, ...(globalThis.__BOARD_CONFIG__ || {}) };

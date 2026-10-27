@@ -323,15 +323,108 @@
   .arow .awhat { font-size: 13px; overflow-wrap: anywhere; margin-top: 2px; }
   @media (prefers-reduced-motion: no-preference) { nav.tabs button, .card, .menu button { transition: background 120ms, color 120ms, border-color 120ms; } }
   /* One shared tooltip: the element's title (or data-tip) in plain words, above the element, below when there is no room. */
+  /* Pulse: connections, the live call stream, who is stuck, and claims that did not check out. */
+  .pulse { position: fixed; inset: 0; z-index: 45; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); color: var(--ink); padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; --ok: #4CC38A; --bad: #F0706A; }
+  .pulse .ph { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-bottom: 10px; }
+  .pulse .ph h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .pulse .pmeta { margin-left: auto; font-size: 12px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pulse .pgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 1200px; margin: 0 auto; }
+  @media (min-width: 900px) { .pulse .pgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  .pulse .pp { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 12px 14px; min-width: 0; }
+  .pulse .pp h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .pulse .pp h3 .pn { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .pulse .ptools { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .pulse .ptools select { height: 32px; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 0; flex: 1 1 auto; }
+  .pulse .prow { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; overflow-wrap: anywhere; }
+  .pulse .prow:first-of-type { border-top: 0; }
+  .pulse .prow.tagged { grid-template-columns: minmax(0, 1fr); }
+  .pulse .prow.tagged > .tag { justify-self: start; margin-right: 0; }
+  .pulse .prow .pm { color: var(--muted); font-size: 12px; }
+  .pulse .prow .pw { font-weight: 600; }
+  .pulse .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; background: var(--muted); }
+  .pulse .dot.ok { background: var(--ok); }
+  .pulse .dot.warn { background: var(--amber); }
+  .pulse .tag { display: inline-block; padding: 0 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 11px; font-weight: 600; color: var(--soft); margin-right: 6px; }
+  .pulse .tag.bad { border-color: var(--bad); color: var(--bad); }
+  .pulse .tag.ok { border-color: var(--ok); color: var(--ok); }
+  .pulse .prow.bad { box-shadow: inset 2px 0 0 var(--bad); padding-left: 10px; }
+  .pulse .prow.link { cursor: pointer; }
+  .pulse .prow.link:hover { background: var(--chip); }
+  .pulse .srow { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; gap: 2px 8px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 12.5px; overflow-wrap: anywhere; }
+  .pulse .srow:first-of-type { border-top: 0; }
+  .pulse .srow .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pulse .srow .ms { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .pulse .srow .err { grid-column: 2 / 4; color: var(--bad); font-size: 12px; }
+  .pulse .pnone { color: var(--muted); font-size: 12.5px; padding: 6px 0; }
+  .pulse #pStream { max-height: 60vh; overflow-y: auto; }
+  /* Projects and milestones: the tab header and the Portfolio view. Blue is in progress, green done, red late. */
+  .msh, .portfolio, dialog.projdlg { --ok: #4CC38A; --bad: #F0706A; }
+  .msh { display: flex; gap: 12px; align-items: stretch; margin: 0 0 14px; }
+  .msh .mscards { display: flex; gap: 8px; flex: 1 1 auto; min-width: 0; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+  .msh .mscard { flex: 1 1 130px; min-width: 130px; max-width: 220px; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+  .msh .mscard:hover { border-color: var(--muted); }
+  .msh .mscard[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .msh .mscard .msn { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  .msh .msbar, .portfolio .pbar { display: block; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+  .msh .msbar i, .portfolio .pbar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .msh .mscard.done .msbar i, .portfolio .pbar.done i { background: var(--ok); }
+  .msh .mscard.late .msbar i, .portfolio .pbar.late i { background: var(--bad); }
+  .msh .mscard .msc { font-size: 12px; color: var(--soft); }
+  .msh .mscard .msd { font-size: 11.5px; color: var(--muted); }
+  .msh .mscard.late .msd { color: var(--bad); }
+  .msh .mscard.notstarted .msn { color: var(--soft); }
+  .msh .msproj { flex: 0 0 auto; width: 210px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 12px; color: var(--soft); }
+  .msh .msproj .msp { font-size: 22px; font-weight: 600; color: var(--ink); line-height: 1.1; }
+  .msh .msproj .late { color: var(--bad); font-weight: 600; }
+  .msh .msproj .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+  .msh .mspill { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--amber); background: transparent; color: var(--amber); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .msh .mspill[aria-pressed="true"] { background: var(--amber); color: #121417; }
+  .msh .msedit { height: 24px; padding: 0 9px; font-size: 12px; }
+  .card .mstag, .fcard .mstag { display: inline-block; max-width: 100%; padding: 2px 8px; border-radius: 6px; background: var(--chip); color: var(--soft); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 720px) { .msh { flex-direction: column; } .msh .msproj { order: -1; width: auto; } .msh .mscard { flex: 0 0 150px; } }
+  .portfolio { position: fixed; inset: 0; z-index: 46; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); color: var(--ink); padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+  .portfolio .ph { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-bottom: 10px; }
+  .portfolio .ph h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .portfolio .pmeta { margin-left: auto; font-size: 12px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .portfolio .ptools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 auto 10px; max-width: 1200px; }
+  .portfolio .ptools button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); }
+  .portfolio .plegend { max-width: 1200px; margin: 0 auto 10px; font-size: 12px; color: var(--muted); }
+  .portfolio .plist { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+  .portfolio .prowp { display: grid; gap: 4px 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); cursor: pointer; font-size: 13px; }
+  .portfolio .prowp:hover, .portfolio .prowp:focus-visible { border-color: var(--muted); }
+  .portfolio .prowp .pn { font-weight: 600; overflow-wrap: anywhere; }
+  .portfolio .prowp .pk { margin-left: 6px; padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--soft); }
+  .portfolio .prowp .pm { color: var(--soft); font-size: 12.5px; }
+  .portfolio .prowp .pm .k { color: var(--muted); }
+  .portfolio .prowp .late { color: var(--bad); font-weight: 600; }
+  .portfolio .prowp .pct { display: flex; align-items: center; gap: 8px; }
+  .portfolio .prowp .pct .pbar { flex: 1 1 auto; }
+  .portfolio .prowp .pct b { min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+  .portfolio .sqs { display: flex; gap: 3px; flex-wrap: wrap; align-items: center; }
+  .portfolio .sq { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--line); box-sizing: border-box; background: transparent; }
+  .portfolio .sq.done { background: var(--ok); border-color: var(--ok); }
+  .portfolio .sq.inprogress { background: var(--accent); border-color: var(--accent); }
+  .portfolio .sq.late { background: var(--bad); border-color: var(--bad); }
+  @media (min-width: 900px) { .portfolio .prowp { grid-template-columns: minmax(0, 1.6fr) 150px minmax(0, 1.2fr) minmax(0, 1fr) 76px 120px minmax(0, 1.3fr); align-items: center; } }
+  dialog.projdlg { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
+  dialog.projdlg h3 { margin: 0 0 12px; font-size: 15px; }
+  dialog.projdlg .pdf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  dialog.projdlg label { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--muted); min-width: 0; }
+  dialog.projdlg input, dialog.projdlg select { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 0; box-sizing: border-box; }
+  dialog.projdlg .pdrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; align-items: end; margin-bottom: 8px; }
+  dialog.projdlg .pdrow button { height: 32px; padding: 0 10px; }
+  dialog.projdlg .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  @media (max-width: 520px) { dialog.projdlg .pdrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } dialog.projdlg .pdrow .pdname { grid-column: 1 / 3; } dialog.projdlg .pdf { grid-template-columns: minmax(0, 1fr); } }
   .tip { position: fixed; z-index: 1000; max-width: 300px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 12px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,0.45); pointer-events: none; overflow-wrap: anywhere; }
 </style>
 <div class="wrap">
   <header class="top">
     <h1>Board</h1>
-    <div class="hright"><div class="sync" id="sync">connecting</div><button type="button" class="qbtn" id="newBtn" hidden title="New card: opens a panel where you describe a task in plain words and the board writes the card.">New card</button><label class="search" aria-label="Search cards"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="q" placeholder="Search cards" autocomplete="off" title="Type to filter the cards on this tab by key, title, note or name. Type a key such as CST-6 and press Enter to open that card."></label><span class="qhint" id="qHint" hidden></span><button type="button" class="qbtn" id="syncBtn" title="Sync: asks GitHub for every open pull request and updates the cards to match.">Sync</button><button type="button" class="bell" id="bell" title="Needs you: opens the list of cards waiting on you, and the activity log." aria-label="Needs you, none" aria-haspopup="dialog" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/></svg><span class="badge" id="bellN" hidden></span></button></div>
+    <div class="hright"><div class="sync" id="sync">connecting</div><button type="button" class="qbtn" id="newBtn" hidden title="New card: opens a panel where you describe a task in plain words and the board writes the card.">New card</button><label class="search" aria-label="Search cards"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="q" placeholder="Search cards" autocomplete="off" title="Type to filter the cards on this tab by key, title, note or name. Type a key such as CST-6 and press Enter to open that card."></label><span class="qhint" id="qHint" hidden></span><button type="button" class="qbtn" id="portBtn" aria-expanded="false" title="Portfolio: every tab as a project, with percent complete, milestones, start and target dates, and the next milestone.">Portfolio</button><button type="button" class="qbtn" id="pulseBtn" hidden title="Pulse: who is connected, every call as it happens, what is stuck, and claims that did not check out.">Pulse</button><button type="button" class="qbtn" id="syncBtn" title="Sync: asks GitHub for every open pull request and updates the cards to match.">Sync</button><button type="button" class="bell" id="bell" title="Needs you: opens the list of cards waiting on you, and the activity log." aria-label="Needs you, none" aria-haspopup="dialog" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/></svg><span class="badge" id="bellN" hidden></span></button></div>
   </header>
   <div class="tabrow"><div class="viewtog" id="viewTog" role="group" aria-label="View"><button type="button" class="btn" data-view="board" title="Board: the cards in columns by status.">Board</button><button type="button" class="btn" data-view="flow" title="Flow: the same cards as branches off each board's main line, stage by stage.">Flow</button></div><select id="who" class="btn who" aria-label="Whose cards" title="Whose cards: show everyone, or only the cards one person owns. Owner also shows every card waiting on you."><option value="">Everyone</option></select><nav class="tabs" id="tabs" role="tablist" aria-label="Boards"></nav></div>
   <p class="readonly" id="ro" hidden>Read only for you. Agents and Owner update this board.</p>
+  <section class="msh" id="msHead" hidden aria-label="Project milestones"></section>
   <div class="lanes" id="lanes"></div>
   <section class="flow" id="flow" hidden aria-label="Flow view">
     <div class="flowhint">Drag to pan, wheel to zoom, double click to reset, click a card to open it</div>
@@ -366,6 +459,31 @@
   <div class="dh"><div class="dtabs" role="tablist"><button type="button" role="tab" id="dtabNeed" aria-selected="true" title="Needs you: every card across every tab that is waiting on you.">Needs you</button><button type="button" role="tab" id="dtabAct" aria-selected="false" title="Activity: every change on the board, newest first, with who made it.">Activity<span class="badge" id="actN" hidden></span></button></div><h2 id="drawerTitle" class="sr">Needs you</h2><select id="drawerSort" class="dsort" aria-label="Sort the list" title="Change the order of the list. Remembered on this browser."><option value="urgent">Urgent first</option><option value="newest">Newest first</option><option value="oldest">Waiting longest</option><option value="board">By tab</option><option value="flat">One list, urgent first</option></select><button type="button" class="dx" id="drawerX" aria-label="Close" title="Close this list.">&times;</button></div>
   <div class="dl" id="drawerList"></div>
 </aside>
+<section class="pulse" id="pulse" role="dialog" aria-modal="true" aria-labelledby="pulseTitle" hidden>
+  <div class="ph"><h2 id="pulseTitle">Pulse</h2><span class="pmeta" id="pulseMeta" aria-live="polite"></span><button type="button" class="qbtn" id="pulseX" aria-label="Close Pulse" title="Close Pulse.">&times;</button></div>
+  <div class="pgrid">
+    <section class="pp" aria-labelledby="pConnH"><h3 id="pConnH">Connections<span class="pn" id="pConnN"></span></h3><div id="pConn"></div></section>
+    <section class="pp" aria-labelledby="pStuckH"><h3 id="pStuckH">Stuck<span class="pn" id="pStuckN"></span></h3><div id="pStuck"></div></section>
+    <section class="pp" aria-labelledby="pStreamH"><h3 id="pStreamH">Stream<span class="pn" id="pStreamN"></span></h3>
+      <div class="ptools"><select id="pFilter" aria-label="Show calls from" title="Show the calls of one connection, or everyone."><option value="">Everyone</option></select><button type="button" class="qbtn" id="pPause" aria-pressed="false" title="Pause: stops the stream from refreshing so you can read it.">Pause</button></div>
+      <div id="pStream" aria-live="off"></div></section>
+    <section class="pp" aria-labelledby="pClaimH"><h3 id="pClaimH">Claims<span class="pn" id="pClaimN"></span></h3><div id="pClaims"></div></section>
+  </div>
+</section>
+<section class="portfolio" id="portfolio" role="dialog" aria-modal="true" aria-labelledby="portTitle" hidden>
+  <div class="ph"><h2 id="portTitle">Portfolio</h2><span class="pmeta" id="portMeta" aria-live="polite"></span><button type="button" class="qbtn" id="portX" aria-label="Close Portfolio" title="Close Portfolio.">&times;</button></div>
+  <div class="ptools" id="portSort" role="group" aria-label="Sort"><button type="button" class="qbtn" data-sort="order" data-label="Board order" aria-pressed="true" title="Board order: the tabs in the order they appear on the board.">Board order</button><button type="button" class="qbtn" data-sort="target" data-label="Target date" aria-pressed="false" title="Target date: soonest first; press again to reverse. Tabs with no target come last.">Target date</button><button type="button" class="qbtn" data-sort="percent" data-label="Percent" aria-pressed="false" title="Percent complete: least done first; press again to reverse.">Percent</button></div>
+  <p class="plegend">Each square is one milestone in order: green done, blue in progress, red late, empty not started. Percent is cards done over cards on the tab. Tap a row to open its tab.</p>
+  <div class="plist" id="portList"></div>
+</section>
+<dialog class="confirm projdlg" id="projDlg" aria-labelledby="projTitle">
+  <h3 id="projTitle">Project dates and milestones</h3>
+  <div class="pdf"><label>Kind<select id="pdKind"><option value="">Not set</option><option value="website">Website</option><option value="product">Product</option><option value="internal">Internal</option></select></label><label>Start<input type="date" id="pdStart"></label><label>Target<input type="date" id="pdTarget"></label></div>
+  <div id="pdRows"></div>
+  <div class="row"><button type="button" id="pdAdd" title="Add a milestone at the end of the list.">Add milestone</button><button type="button" id="pdTemplate" title="Add the standard website milestones that this tab does not have yet, from Intake to Handoff.">Add website milestones</button></div>
+  <p class="err" id="pdErr" role="alert" hidden></p>
+  <div class="row"><button type="button" id="pdCancel" title="Close without saving.">Cancel</button><button type="button" class="danger" id="pdSave" title="Save the project dates and milestones on this tab.">Save</button></div>
+</dialog>
 <div id="panels"></div>
 <dialog class="confirm" id="loginDlg" aria-labelledby="loginMsg">
   <p id="loginMsg">Sign in with the owner password.</p>
@@ -401,7 +519,7 @@
   let query = '';
   function matches(t) {
     if (!query) return true;
-    const hay = [t.key, t.title, t.note, t.owner, t.lane, t.status, t.kind, t.createdBy, (t.touchedBy || []).join(' '), t.brief && t.brief.objective, (t.history || []).map((h) => h.what).join(' ')].join(' ').toLowerCase();
+    const hay = [t.key, t.title, t.note, t.milestone && msName(t), t.owner, t.lane, t.status, t.kind, t.createdBy, (t.touchedBy || []).join(' '), t.brief && t.brief.objective, (t.history || []).map((h) => h.what).join(' ')].join(' ').toLowerCase();
     return query.split(/\s+/).every((w) => hay.includes(w));
   }
   let canWrite = null;
@@ -465,12 +583,196 @@
       btn.type = 'button'; btn.role = 'tab'; btn.setAttribute('aria-selected', String(b.id === current));
       btn.innerHTML = esc(b.name) + (open ? '<span class="n">' + open + '</span>' : '');
       btn.title = b.id === ALL ? 'Show every open card from every tab in one place.' : 'Show only the ' + b.name + ' cards' + (open ? ', ' + open + ' open now.' : '.');
-      btn.addEventListener('click', () => { current = b.id; rememberTab(); render(); });
+      btn.addEventListener('click', () => { current = b.id; msFilter = ''; rememberTab(); render(); });
       nav.appendChild(btn);
     }
   }
 
-  window.addEventListener('hashchange', () => { const h = hashToken(location.hash.slice(1)); if (h && h !== current) { current = h; try { localStorage.setItem('board.tab', current); } catch {} render(); } });
+  // ---- Projects and milestones (). A tab is a project; a card names one milestone of its tab. Status
+  // and percent are worked out from the cards here exactly as worker/src/projects.js does on the server (a test holds
+  // the two together), and nothing derived is ever stored.
+  const MS_WORD = { done: 'Done', late: 'Late', notstarted: 'Not started', inprogress: 'In progress' };
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const WEBSITE_MILESTONES = ['Intake', 'Design chosen', 'Content in', 'Build', 'Preview approved', 'Live', 'Handoff'];
+  const NO_MS = '__none';
+  let msFilter = '';
+  const pad2 = (n) => String(n).padStart(2, '0');
+  // Today comes from the Worker (its BOARD_TZ zone, sent with the boards), so the page and the server agree on late.
+  let serverToday = '';
+  function localToday() { if (serverToday) return serverToday; const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function validDay(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+  function shortDay(s) { return validDay(s) ? MONTHS[Number(s.slice(5, 7)) - 1] + ' ' + Number(s.slice(8, 10)) : ''; }
+  function slugId(name) { return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/g, '') || 'milestone'; }
+  function msOf(b) { return b && Array.isArray(b.milestones) ? b.milestones.filter((m) => m && m.id) : []; }
+  function isProject(b) { return !!b && (!!b.kind || !!b.start || !!b.target || msOf(b).length > 0); }
+  function projectStats(b, cards, today) {
+    const live = (cards || []).filter((c) => c && c.deleted !== true);
+    const ms = msOf(b); const known = new Set(ms.map((m) => m.id));
+    const rows = ms.map((m) => {
+      const mine = live.filter((c) => c.milestone === m.id);
+      const done = mine.filter((c) => c.status === 'done').length;
+      const blocked = mine.filter((c) => c.status === 'blocked').length;
+      const open = mine.length - done;
+      const started = mine.some((c) => (c.status || 'todo') !== 'todo');
+      const status = mine.length > 0 && open === 0 ? 'done' : (m.end && m.end < today && open > 0) ? 'late' : !started ? 'notstarted' : 'inprogress';
+      return { id: m.id, name: m.name, start: m.start || '', end: m.end || '', total: mine.length, done, blocked, status };
+    });
+    const total = live.length; const done = live.filter((c) => c.status === 'done').length;
+    const target = b && validDay(b.target) ? b.target : '';
+    return { milestones: rows, total, done, blocked: live.filter((c) => c.status === 'blocked').length, open: total - done, percent: total ? Math.round(100 * done / total) : 0,
+      noMilestone: live.filter((c) => !c.milestone || !known.has(c.milestone)).length, next: rows.find((r) => r.status !== 'done') || null,
+      target, start: b && validDay(b.start) ? b.start : '', late: !!target && target < today && total > done };
+  }
+  function msName(t) { const b = boards.find((x) => x.id === t.board); const m = msOf(b).find((x) => x.id === t.milestone); return m ? m.name : (t.milestone || ''); }
+  function msMatch(t) {
+    if (!msFilter || current === ALL) return true;
+    if (msFilter === NO_MS) { const b = boards.find((x) => x.id === t.board); return !t.milestone || !msOf(b).some((m) => m.id === t.milestone); }
+    return t.milestone === msFilter;
+  }
+  function msCount(m) { return m.done + ' of ' + m.total + ' done' + (m.blocked ? ', ' + m.blocked + ' blocked' : ''); }
+  function msDates(m) { return m.start || m.end ? (m.start ? shortDay(m.start) : 'No start') + ' to ' + (m.end ? shortDay(m.end) : 'no end') : 'No dates yet'; }
+  function renderMilestones() {
+    const host = $('msHead');
+    const b = current === ALL ? null : boards.find((x) => x.id === current);
+    if (!b || !isProject(b)) {
+      msFilter = '';
+      // A tab that is not a project yet shows Owner one small block with the way in; everyone else sees nothing.
+      if (b && isOwner() && canWrite !== false) {
+        host.innerHTML = '<div class="msproj"><span>Not set up as a project yet.</span><div class="row"><button type="button" class="quiet msedit" data-msedit="1" title="Make this tab a project: set its kind and dates, and add milestones such as the standard website ones.">Set up milestones</button></div></div>';
+        host.hidden = false;
+      } else { host.hidden = true; host.innerHTML = ''; }
+      return;
+    }
+    const s = projectStats(b, tasks.filter((t) => t.board === b.id), localToday());
+    if (msFilter && msFilter !== NO_MS && !s.milestones.some((m) => m.id === msFilter)) msFilter = '';
+    if (msFilter === NO_MS && !(s.noMilestone && s.milestones.length)) msFilter = '';
+    const cards = s.milestones.map((m) => {
+      const pct = m.total ? Math.round(100 * m.done / m.total) : 0;
+      return '<button type="button" class="mscard ' + m.status + '" data-ms="' + esc(m.id) + '" aria-pressed="' + (msFilter === m.id) + '" title="' + esc(m.name + ': ' + MS_WORD[m.status].toLowerCase() + '. Tap to show only its cards on this tab; tap again to show them all.') + '">' +
+        '<span class="msn">' + esc(m.name) + '</span><span class="msbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="msc">' + esc(msCount(m)) + '</span><span class="msd">' + esc(msDates(m)) + '</span></button>';
+    }).join('');
+    const pill = s.noMilestone && s.milestones.length ? '<button type="button" class="mspill" data-ms="' + NO_MS + '" aria-pressed="' + (msFilter === NO_MS) + '" title="Cards on this tab that name no milestone. Tap to show only them; tap again to show every card.">' + s.noMilestone + ' with no milestone</button>' : '';
+    const edit = isOwner() && canWrite !== false ? '<button type="button" class="quiet msedit" data-msedit="1" title="Edit this project: its kind, start and target dates, and each milestone with its dates.">Edit dates</button>' : '';
+    const proj = '<div class="msproj"><span class="msp">' + s.percent + '%</span><span>' + s.done + ' of ' + s.total + ' cards done</span>' +
+      (s.start ? '<span>Started ' + shortDay(s.start) + '</span>' : '') +
+      (s.target ? '<span>Target ' + shortDay(s.target) + (s.late ? ' <span class="late">late</span>' : '') + '</span>' : '<span>No target date</span>') +
+      (s.next ? '<span>Next: ' + esc(s.next.name) + '</span>' : s.milestones.length ? '<span>Every milestone done</span>' : '') +
+      ((pill || edit) ? '<div class="row">' + pill + edit + '</div>' : '') + '</div>';
+    host.innerHTML = '<div class="mscards">' + cards + '</div>' + proj;
+    host.hidden = false;
+  }
+  $('msHead').addEventListener('click', (ev) => {
+    const t = ev.target && ev.target.closest ? ev.target : null; if (!t) return;
+    const edit = t.closest('[data-msedit]'); if (edit) { const b = boards.find((x) => x.id === current); if (b) openProjectEditor(b); return; }
+    const pick = t.closest('[data-ms]'); if (!pick) return;
+    const id = pick.getAttribute('data-ms'); msFilter = msFilter === id ? '' : id; render();
+  });
+
+  // Owner's editor for the project dates and the milestones (only he changes them; everyone else sees them read only).
+  const pd = { board: null, rows: [] };
+  function pdRows() {
+    $('pdRows').innerHTML = pd.rows.map((r, i) => '<div class="pdrow" data-i="' + i + '"><label class="pdname">Milestone<input type="text" maxlength="60" data-f="name" value="' + esc(r.name) + '"></label>' +
+      '<label>Start<input type="date" data-f="start" value="' + esc(r.start) + '"></label><label>End<input type="date" data-f="end" value="' + esc(r.end) + '"></label>' +
+      '<span><button type="button" class="quiet" data-up="' + i + '" aria-label="Move up" title="Move this milestone one place earlier.">&uarr;</button> <button type="button" class="quiet" data-rm="' + i + '" aria-label="Remove" title="Remove this milestone. Its cards stay and count as having no milestone.">&times;</button></span></div>').join('');
+  }
+  function openProjectEditor(b) {
+    pd.board = b; pd.rows = msOf(b).map((m) => ({ id: m.id, name: m.name, start: m.start || '', end: m.end || '' }));
+    $('pdKind').value = b.kind || ''; $('pdStart').value = b.start || ''; $('pdTarget').value = b.target || '';
+    $('pdErr').hidden = true; pdRows(); $('projDlg').showModal();
+  }
+  async function saveProject() {
+    const b = pd.board; if (!b) return;
+    const used = new Set(); const milestones = [];
+    for (const r of pd.rows) {
+      const name = r.name.trim(); if (!name) continue;
+      let id = r.id || slugId(name);
+      if (used.has(id)) { let n = 2; while (used.has(id + '-' + n)) n++; id = id + '-' + n; }
+      used.add(id); milestones.push({ id, name, start: r.start || '', end: r.end || '' });
+    }
+    const data = { ...b, start: $('pdStart').value, target: $('pdTarget').value, milestones };
+    delete data.id; delete data.version;
+    const kind = $('pdKind').value; if (kind) data.kind = kind; else delete data.kind;
+    try { await api('PUT', '/boards/' + encodeURIComponent(b.id), { data, ifVersion: b.version }); $('projDlg').close(); afterWrite(); }
+    catch (e) { $('pdErr').textContent = e.status === 409 ? 'The tab changed while you were editing. Close this and open it again.' : (e.message || 'Save failed, try again.'); $('pdErr').hidden = false; }
+  }
+  $('pdRows').addEventListener('input', (ev) => {
+    const row = ev.target.closest && ev.target.closest('.pdrow'); const f = ev.target.getAttribute && ev.target.getAttribute('data-f'); if (!row || !f) return;
+    pd.rows[Number(row.dataset.i)][f] = ev.target.value;
+  });
+  $('pdRows').addEventListener('click', (ev) => {
+    const up = ev.target.closest && ev.target.closest('[data-up]'); const rm = ev.target.closest && ev.target.closest('[data-rm]');
+    if (up) { const i = Number(up.getAttribute('data-up')); if (i > 0) { [pd.rows[i - 1], pd.rows[i]] = [pd.rows[i], pd.rows[i - 1]]; pdRows(); } }
+    if (rm) { pd.rows.splice(Number(rm.getAttribute('data-rm')), 1); pdRows(); }
+  });
+  $('pdAdd').addEventListener('click', () => { pd.rows.push({ id: '', name: '', start: '', end: '' }); pdRows(); });
+  $('pdTemplate').addEventListener('click', () => {
+    const have = new Set(pd.rows.map((r) => r.id));
+    for (const name of WEBSITE_MILESTONES) if (!have.has(slugId(name))) pd.rows.push({ id: slugId(name), name, start: '', end: '' });
+    $('pdKind').value = $('pdKind').value || 'website'; pdRows();
+  });
+  $('pdCancel').addEventListener('click', () => $('projDlg').close());
+  $('pdSave').addEventListener('click', saveProject);
+
+  // The Portfolio view: every tab in one list, from GET /portfolio.
+  const port = { open: false, rows: [], sort: 'order', dir: 1, busy: false, timer: 0 };
+  function portSorted() {
+    const rows = port.rows.slice();
+    if (port.sort === 'target') rows.sort((a, b) => (a.target ? 0 : 1) - (b.target ? 0 : 1) || port.dir * String(a.target).localeCompare(String(b.target)));
+    else if (port.sort === 'percent') rows.sort((a, b) => port.dir * (a.percent - b.percent));
+    return rows;
+  }
+  function portRow(r) {
+    const sq = r.milestones.map((m) => '<i class="sq ' + m.status + '" title="' + esc(m.name + ': ' + MS_WORD[m.status].toLowerCase() + ', ' + m.done + ' of ' + m.total + ' done') + '"></i>').join('');
+    const nxt = r.next ? r.next.name + (r.next.status === 'late' ? ' (late)' : '') : r.milestones.length ? 'Every milestone done' : 'No milestones';
+    return '<div class="prowp" role="button" tabindex="0" data-board="' + esc(r.board) + '" title="Open the ' + esc(r.name) + ' tab.">' +
+      '<div><span class="pn">' + esc(r.name) + '</span>' + (r.kind ? '<span class="pk">' + esc(r.kind) + '</span>' : '') + '</div>' +
+      '<div class="pct"><span class="pbar' + (r.late ? ' late' : r.percent === 100 ? ' done' : '') + '" aria-hidden="true"><i style="width:' + r.percent + '%"></i></span><b>' + r.percent + '%</b></div>' +
+      '<div class="pm">' + r.cards.done + ' of ' + r.cards.total + ' cards done, ' + r.cards.open + ' open' + (r.cards.blocked ? ', ' + r.cards.blocked + ' blocked' : '') + '</div>' +
+      '<div class="sqs" aria-label="Milestones in order">' + sq + '</div>' +
+      '<div class="pm"><span class="k">Start </span>' + esc(shortDay(r.start) || 'none') + '</div>' +
+      '<div class="pm"><span class="k">Target </span>' + esc(shortDay(r.target) || 'none') + (r.late ? ' <span class="late">late</span>' : '') + '</div>' +
+      '<div class="pm"><span class="k">Next </span>' + esc(nxt) + '</div></div>';
+  }
+  function renderPortfolio() {
+    $('portList').innerHTML = port.rows.length ? portSorted().map(portRow).join('') : '<p class="pm">No tabs yet.</p>';
+    for (const b of document.querySelectorAll('#portSort button')) {
+      const k = b.dataset.sort; const on = k === port.sort;
+      b.setAttribute('aria-pressed', String(on));
+      b.innerHTML = b.dataset.label + (on && k !== 'order' ? (port.dir > 0 ? ' &uarr;' : ' &darr;') : '');
+    }
+  }
+  // The rows come from the boards and cards the page already polls, worked out with projectStats above; GET /portfolio
+  // is for API readers and is not polled here.
+  function portRows() {
+    const today = localToday();
+    return [...boards].sort((a, b) => (a.order ?? 99) - (b.order ?? 99)).map((b) => {
+      const s = projectStats(b, tasks.filter((t) => t.board === b.id), today);
+      return { board: b.id, name: b.name || b.id, kind: b.kind || '', percent: s.percent, late: s.late, start: s.start, target: s.target,
+        cards: { total: s.total, done: s.done, open: s.open, blocked: s.blocked }, next: s.next ? { id: s.next.id, name: s.next.name, status: s.next.status } : null,
+        milestones: s.milestones, noMilestone: s.noMilestone };
+    });
+  }
+  function portRefresh() { port.rows = portRows(); renderPortfolio(); $('portMeta').textContent = 'live, ' + port.rows.length + ' tabs'; }
+  function openPortfolio() {
+    if (port.open) return; port.open = true; $('portfolio').hidden = false; $('portBtn').setAttribute('aria-expanded', 'true'); $('portX').focus();
+    portRefresh();
+  }
+  function closePortfolio(refocus) {
+    if (!port.open) return; port.open = false; $('portfolio').hidden = true; $('portBtn').setAttribute('aria-expanded', 'false');
+    if (refocus !== false) $('portBtn').focus();
+  }
+  function goToBoard(id) { current = id; msFilter = ''; rememberTab(); closePortfolio(false); render(); }
+  $('portBtn').addEventListener('click', () => { if (port.open) closePortfolio(); else openPortfolio(); });
+  $('portX').addEventListener('click', () => closePortfolio());
+  $('portSort').addEventListener('click', (ev) => {
+    const b = ev.target.closest && ev.target.closest('button'); if (!b) return;
+    const k = b.dataset.sort; port.dir = port.sort === k && k !== 'order' ? -port.dir : 1; port.sort = k; renderPortfolio();
+  });
+  $('portList').addEventListener('click', (ev) => { const r = ev.target.closest && ev.target.closest('[data-board]'); if (r) goToBoard(r.getAttribute('data-board')); });
+  $('portList').addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' && ev.key !== ' ') return; const r = ev.target.closest && ev.target.closest('[data-board]'); if (r) { ev.preventDefault(); goToBoard(r.getAttribute('data-board')); } });
+
+  window.addEventListener('hashchange', () => { const h = hashToken(location.hash.slice(1)); if (h && h !== current) { current = h; msFilter = ''; try { localStorage.setItem('board.tab', current); } catch {} render(); } });
   const FROM_NAMES = { owner: 'Owner', agent: 'Agent', reviewer: 'Reviewer', 'github-actions': 'GitHub' };
   function fromCaption(t) { const a = t && t.ask; if (!a || !a.by) return ''; return 'From ' + (FROM_NAMES[a.by] || a.by); }
   const LANES = {};
@@ -810,6 +1112,7 @@
     if (t.status === 'doing' && dc.length) html += '<div class="bar' + (isRunning(t) ? ' live' : '') + '" aria-hidden="true"><div style="width:' + Math.round(100 * dcDone / dc.length) + '%"></div></div>';
     const pills = evidencePills(t, 3); if (pills) html += '<div class="evl">' + pills + '</div>';
     { const p = projectOf(t); if (p) html += '<div class="pj">' + projectLink(p) + '</div>'; }
+    if (t.milestone) html += '<div class="evl"><span class="mstag" title="Milestone: the part of the project this card belongs to.">' + esc(msName(t)) + '</span></div>';
     li.innerHTML = html;
     if (askI) {
       if (toAgent(t)) {
@@ -976,6 +1279,7 @@
     } else {
       out += '<div><span class="rk">Priority</span><div class="rv">' + (isUrgent(t) ? '<span class="dot" aria-hidden="true"></span>' : '') + prioWord(t.priority) + '</div></div>';
     }
+    { const ml = msOf(boards.find((x) => x.id === t.board)); if (ml.length || t.milestone) out += '<div><span class="rk">Milestone</span><div class="rv">' + (live ? '<select class="sel" data-milestone aria-label="Milestone" title="Move this card to another milestone of this tab, or none. Saves at once and goes into the history."><option value="">None</option>' + options(ml.map((m) => m.id), t.milestone || '', (id) => (ml.find((m) => m.id === id) || { name: id }).name) + '</select>' : (t.milestone ? esc(msName(t)) : '<span class="mut">none</span>')) + '</div></div>'; }
     out += '<div><span class="rk">Review</span><div class="rv">' + (rz.verdict ? 'Reviewer ' + rz.verdict + (rz.notes ? ' \u00b7 ' + esc(rz.notes) : '') : '<span class="mut">no verdict yet</span>') + '</div></div>';
     if ((t.kind || 'human') === 'production') {
       var tier = t.risk === 1 || t.risk === 2 || t.risk === 3 ? t.risk : 3;
@@ -1216,6 +1520,7 @@
     const t = taskOfEl(ev.target); if (!t || !ev.target || !ev.target.matches) return;
     const v = ev.target.value;
     if (ev.target.matches('[data-owner]')) { write(t.id, { owner: v }, 'owner ' + ARROW + ' ' + v); return; }
+    if (ev.target.matches('[data-milestone]')) { write(t.id, { milestone: v ? v : { __delete__: true } }, 'milestone ' + ARROW + ' ' + (v ? msName({ board: t.board, milestone: v }) : 'none')); return; }
     if (ev.target.matches('[data-prio]')) { write(t.id, { priority: prioNum(v) }, 'priority ' + ARROW + ' ' + v.toLowerCase()); return; }
     if (ev.target.matches('[data-status]')) {
       if (v === 'customer') { write(t.id, { waitingOn: 'customer', status: 'waiting', needsOwner: false }, 'waiting on customer'); return; }
@@ -1273,6 +1578,7 @@
     try {
       const [b, t] = await Promise.all([api('GET', '/boards'), api('GET', '/tasks')]);
       if (mark !== epoch) return refresh(); // a write landed while this read was in flight
+      if (validDay(b.today)) serverToday = b.today;
       const bl = b.boards.map(toBoard);
       boards = bl.some((x) => x.id === 'main') ? bl : [{ id: 'main', name: 'Main', order: 0 }, ...bl];
       boardsLoaded = true;
@@ -1459,6 +1765,8 @@
   // Escape, in order: the menu (handled above, capture), a confirm dialog (native), the drawer, then the frontmost panel.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || menuEl || document.querySelector('dialog[open]')) return;
+    if (port.open) { closePortfolio(); return; }
+    if (pulse.open) { closePulse(); return; }
     if (drawerOpen) { closeDrawer(); return; }
     const f = frontPanel(); if (f) closePanel(f.id);
   });
@@ -1640,7 +1948,9 @@
     if (db) loadActivity(false);
     const lanes = $('lanes'); lanes.textContent = '';
     renderWho();
-    const mine = tasks.filter((t) => onTab(t) && matches(t) && whoMatch(t));
+    renderMilestones();
+    if (port.open) portRefresh();
+    const mine = tasks.filter((t) => onTab(t) && matches(t) && whoMatch(t) && msMatch(t));
     const showBoard = current === ALL;
     const hint = $('qHint');
     if (query) {
@@ -1812,6 +2122,92 @@
   $('genBtn').addEventListener('click', generate);
   $('genStop').addEventListener('click', () => { if (genCtl) genCtl.abort(); });
 
+  // ---- Pulse: connections, the live call stream, who is stuck, and claims that did not check out.
+  // Read only, for the admins. The stream polls every five seconds while the tab is open; the other panels every fifteen.
+  function pulseOn() { return !!MOD.pulse; }
+  const pulse = { open: false, paused: false, cursor: 0, calls: [], conn: [], stuck: [], claims: [], busy: false, timer: 0, tick: 0 };
+  const RULE_NAME = { claimed_no_reply: 'Claimed, no reply', card_silent: 'Card silent', no_session: 'No session', not_picked_up: 'Not picked up', ask_waiting: 'Ask waiting' };
+  const CLAIM_NAME = { checked_true: 'Holds', checked_false: 'False', not_checkable: 'Not checkable' };
+  const clock = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString([], { hour12: false }); };
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  function renderConn() {
+    const box = $('pConn'); const list = pulse.conn;
+    $('pConnN').textContent = list.length ? list.filter((c) => c.dot === 'green').length + ' live of ' + list.length : '';
+    if (!list.length) { box.innerHTML = '<div class="pnone">No connections yet.</div>'; return; }
+    const WORD = { green: 'live', amber: 'recent', grey: 'quiet' };
+    const CLS = { green: 'ok', amber: 'warn', grey: '' };
+    box.innerHTML = list.map((c) => '<div class="prow"><span class="dot ' + CLS[c.dot] + '" role="img" aria-label="' + WORD[c.dot] + '"></span><div><span class="pw">' + esc(whoName(c.principal)) + '</span> <span class="tag">' + WORD[c.dot] + '</span><div class="pm">' +
+      (c.lastCall ? 'last call ' + esc(age(c.lastCall)) + ' ago' : 'no calls logged') + ', ' + plural(c.callsLastHour, 'call') + ' in the last hour' + (c.errorsLastHour ? ', ' + c.errorsLastHour + ' failed' : '') +
+      (c.tokenExpires ? ', sign in until ' + esc(new Date(c.tokenExpires).toLocaleDateString([], { month: 'short', day: 'numeric' })) : '') + '</div></div></div>').join('');
+    const sel = $('pFilter'); const keep = sel.value;
+    const names = [...new Set([...list.map((c) => c.principal), ...pulse.calls.map((x) => x.principal)])].sort();
+    if (names.join('|') !== [...sel.options].slice(1).map((o) => o.value).join('|')) {
+      sel.innerHTML = '<option value="">Everyone</option>' + names.map((n) => '<option value="' + esc(n) + '">' + esc(whoName(n)) + '</option>').join('');
+      sel.value = names.includes(keep) ? keep : '';
+    }
+  }
+  function renderStream() {
+    const box = $('pStream'); const list = pulse.calls;
+    $('pStreamN').textContent = pulse.paused ? 'paused' : list.length ? 'live' : '';
+    if (!list.length) { box.innerHTML = '<div class="pnone">No calls logged yet.</div>'; return; }
+    box.innerHTML = list.map((c) => '<div class="srow"><span class="t">' + esc(clock(c.at)) + '</span><span><span class="pw">' + esc(whoName(c.principal)) + '</span> ' + esc(c.tool) + (c.target ? ' <span class="pm">' + esc(c.target) + '</span>' : '') +
+      (c.claim === 'checked_false' ? ' <span class="tag bad">false claim</span>' : '') + '</span><span class="ms">' + (c.outcome === 'ok' ? c.ms + ' ms' : '<span class="tag bad">failed</span>') + '</span>' +
+      (c.error ? '<span class="err">' + esc(c.error) + '</span>' : '') + '</div>').join('');
+  }
+  function renderStuck() {
+    const box = $('pStuck'); const list = pulse.stuck;
+    $('pStuckN').textContent = list.length ? list.length + ' stuck' : '';
+    if (!list.length) { box.innerHTML = '<div class="pnone">Nothing is stuck.</div>'; return; }
+    box.innerHTML = list.map((r, i) => '<div class="prow tagged link bad" data-i="' + i + '" tabindex="0" role="button" title="' + (r.key ? 'Open the card.' : 'A project message; the project chat has the rest.') + '"><span class="tag bad">' + esc(RULE_NAME[r.rule] || r.rule) + '</span><div><span class="pw">' + esc(r.age) + '</span> <span class="pm">' + esc(r.owner ? 'owner ' + whoName(r.owner) : 'no owner') + '</span><div>' + esc(r.text) + '</div></div></div>').join('');
+    for (const el of box.querySelectorAll('.prow')) {
+      const open = () => {
+        const r = pulse.stuck[Number(el.dataset.i)]; if (!r) return;
+        if (r.key && tasks.some((x) => x.id === r.id)) { closePulse(false); const t = tasks.find((x) => x.id === r.id); if (t.board && !onTab(t)) { current = t.board; rememberTab(); render(); } openDetail(r.id); }
+        else if (r.link && /^https:/.test(r.link)) window.open(r.link, '_blank', 'noopener');
+      };
+      el.addEventListener('click', open);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    }
+  }
+  function renderClaims() {
+    const box = $('pClaims'); const list = pulse.claims; const bad = list.filter((c) => c.verdict === 'checked_false').length;
+    $('pClaimN').textContent = list.length ? (bad ? bad + ' false' : 'none false') : '';
+    if (!list.length) { box.innerHTML = '<div class="pnone">No claims checked yet. A reply or comment that cites a pull request, run or link is checked within ten minutes.</div>'; return; }
+    box.innerHTML = list.map((c) => '<div class="prow tagged' + (c.verdict === 'checked_false' ? ' bad' : '') + '"><span class="tag ' + (c.verdict === 'checked_false' ? 'bad' : c.verdict === 'checked_true' ? 'ok' : '') + '">' + esc(CLAIM_NAME[c.verdict] || c.verdict) + '</span><div><span class="pw">' + esc(whoName(c.principal)) + '</span> <span class="pm">' + esc(c.tool) + (c.target ? ' ' + esc(c.target) : '') + ', ' + esc(age(c.at)) + ' ago</span><div>' + esc(c.detail) + '</div></div></div>').join('');
+  }
+  async function pulseRefresh(all) {
+    if (pulse.busy || !pulse.open) return; pulse.busy = true;
+    try {
+      const jobs = [];
+      if (all || !pulse.paused) {
+        if (!pulse.paused) jobs.push(api('GET', '/pulse/stream?since=' + pulse.cursor + '&principal=' + encodeURIComponent($('pFilter').value)).then((r) => { pulse.calls = [...r.calls, ...pulse.calls].slice(0, 200); pulse.cursor = Math.max(pulse.cursor, r.cursor || 0); renderStream(); }));
+      }
+      if (all) {
+        jobs.push(api('GET', '/pulse/connections').then((r) => { pulse.conn = r.connections; renderConn(); }));
+        jobs.push(api('GET', '/pulse/stuck').then((r) => { pulse.stuck = r.stuck; renderStuck(); }));
+        jobs.push(api('GET', '/pulse/claims').then((r) => { pulse.claims = r.claims; renderClaims(); }));
+      }
+      await Promise.all(jobs);
+      $('pulseMeta').textContent = 'updated ' + new Date().toLocaleTimeString([], { hour12: false });
+    } catch (e) { $('pulseMeta').textContent = e && e.status === 403 ? 'Pulse is for the admins' : 'offline, retrying'; }
+    pulse.busy = false;
+  }
+  function openPulse() {
+    if (pulse.open) return; pulse.open = true; pulse.tick = 0;
+    $('pulse').hidden = false; $('pulseBtn').setAttribute('aria-expanded', 'true'); $('pulseX').focus();
+    pulseRefresh(true);
+    pulse.timer = setInterval(() => { pulse.tick += 1; if (!document.hidden) pulseRefresh(pulse.tick % 3 === 0); }, 5000);
+  }
+  function closePulse(refocus) {
+    if (!pulse.open) return; pulse.open = false; clearInterval(pulse.timer);
+    $('pulse').hidden = true; $('pulseBtn').setAttribute('aria-expanded', 'false');
+    if (refocus !== false) $('pulseBtn').focus();
+  }
+  $('pulseBtn').addEventListener('click', () => { if (pulse.open) closePulse(); else openPulse(); });
+  $('pulseX').addEventListener('click', () => closePulse());
+  $('pPause').addEventListener('click', () => { pulse.paused = !pulse.paused; $('pPause').textContent = pulse.paused ? 'Resume' : 'Pause'; $('pPause').setAttribute('aria-pressed', String(pulse.paused)); renderStream(); if (!pulse.paused) pulseRefresh(false); });
+  $('pFilter').addEventListener('change', () => { pulse.cursor = 0; pulse.calls = []; renderStream(); pulseRefresh(false); });
+
   function showLogin() {
     const dlg = $('loginDlg'); if (!dlg || dlg.open) return;
     const go = async () => {
@@ -1850,6 +2246,7 @@
       me = { principal: String(w.principal || ''), canWrite: w.canWrite !== false, isAdmin: !!w.isAdmin };
       canWrite = me.canWrite;
       if (!canWrite) $('ro').hidden = false;
+      if (me.isAdmin && pulseOn()) $('pulseBtn').hidden = false;
     } catch (e) { if (e.status === 401) { showLogin(); return; } if (e.status === 403) markReadOnly(); /* no whoami or unreachable: treat as writer */ }
     await refresh();
     setInterval(refresh, POLL_MS);

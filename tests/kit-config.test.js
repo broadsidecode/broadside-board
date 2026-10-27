@@ -16,8 +16,8 @@ const CHILD = `
 const config = await import(${JSON.stringify(src('config.js'))});
 const lib = await import(${JSON.stringify(src('lib.js'))});
 const mcp = await import(${JSON.stringify(src('mcp.js'))});
-const OFF = JSON.stringify({ start: false, github: false, generate: false, tabs: false, production: false });
-const ON = JSON.stringify({ start: true, github: true, generate: true, tabs: true, production: true });
+const OFF = JSON.stringify({ start: false, github: false, generate: false, tabs: false, production: false, pulse: false });
+const ON = JSON.stringify({ start: true, github: true, generate: true, tabs: true, production: true, pulse: true });
 const rpc = async (env, method, params) => (await mcp.handleRpc(env, 'owner', { jsonrpc: '2.0', id: 1, method, params })).json;
 const listNames = async (env) => (await rpc(env, 'tools/list')).result.tools.map((t) => t.name);
 const called = await rpc({ BOARD_MODULES: OFF }, 'tools/call', { name: 'nudge_card', arguments: {} });
@@ -105,7 +105,7 @@ test('publicConfig has labels and flags only', () => {
   assert.deepEqual(p.agents, []);
   assert.deepEqual(p.lanes, ['main']);
   assert.deepEqual(p.mentionNames, ['agent']);
-  assert.deepEqual(p.modules, { start: false, github: false, production: false, generate: false, tabs: false });
+  assert.deepEqual(p.modules, { start: false, github: false, production: false, generate: false, tabs: false, pulse: false });
   assert.equal(result.publicOn.modules.github, true);
   assert.ok(!/@/.test(JSON.stringify(p)));
 });

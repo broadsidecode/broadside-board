@@ -1,6 +1,7 @@
 // D1 access for boards, tasks, counters and the history log. Every write bumps version, sets
 // updated_at and appends a history_log row, in one D1 batch (one transaction).
-import { actorLabel, applyAskRule, columns, isRollbackProblem, mergeCard, priorityNumber, readOnlyProblem, stampCard, validateCard, validateBoard, writeProblem } from './lib.js';
+import { milestoneIds, onlyProjectFieldsChanged } from './projects.js';
+import { actorLabel, ADMINS, applyAskRule, columns, isRollbackProblem, mergeCard, priorityNumber, readOnlyProblem, stampCard, validateCard, validateBoard, writeProblem } from './lib.js';
 
 export class HttpError extends Error {
   constructor(status, message, extra = {}) {
@@ -101,6 +102,14 @@ async function taskWriteStatements(db, who, w, opts = {}) {
   if (denied) throw new HttpError(isRollbackProblem(denied) ? 422 : 403, denied, { id: w.id });
   const problem = validateCard(card);
   if (problem) throw new HttpError(400, problem, { id: w.id });
+  // A card's milestone must be one of its own tab's. Read the tab only when the milestone is set or changes, or the card moves to another tab.
+  if (card.milestone && (!existing || existing.data.milestone !== card.milestone || existing.data.board !== card.board)) {
+    const tab = await getBoard(db, String(card.board || ''));
+    const ids = milestoneIds(tab && tab.data);
+    if (!ids.includes(card.milestone)) {
+      throw new HttpError(400, `milestone ${card.milestone} is not a milestone of board ${card.board}${ids.length ? `; its milestones are ${ids.join(', ')}` : ', which has none yet'}`, { id: w.id });
+    }
+  }
   const c = columns(card);
   const json = JSON.stringify(card);
   if (existing) {
@@ -209,13 +218,16 @@ export async function setBoardPaused(db, who, id, paused, reason = '') {
 }
 
 export async function putBoard(db, who, id, body, canSeed) {
-  readOnly(who, null);
+  // Owner writes any tab field. Worker may change only the project fields (kind, start, target, milestones) of a tab
+  // that exists; anything else, and every other name, stays read only (lib.js readOnlyProblem).
+  if (!ADMINS.includes(who)) readOnly(who, null);
   const existing = await getBoard(db, id);
   const data = body.data && typeof body.data === 'object' && !Array.isArray(body.data)
     ? { ...Object.fromEntries(Object.entries(body.data).filter(([k]) => !PAUSE_FIELDS.includes(k))), ...pauseOf(existing) }
     : body.data;
   const problem = validateBoard(data);
   if (problem) throw new HttpError(400, problem);
+  if (who !== 'owner' && !(existing && onlyProjectFieldsChanged(existing.data, data))) readOnly(who, null);
   const at = nowIso();
   if (existing) {
     if (body.ifVersion === undefined || Number(body.ifVersion) !== existing.version) {
